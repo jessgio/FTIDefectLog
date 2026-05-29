@@ -1,0 +1,590 @@
+import React from "react";
+import { DefectPhotoPicker } from "../components/DefectPhotoPicker";
+import { DEFECT_REASONS, MAX_DEFECT_LINES } from "../defectReasons";
+import {
+  defectRowsToLines,
+  emptyDefectRow,
+  resizeDefectRows,
+  type DefectRowState,
+} from "../defectForm";
+import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
+import { ProductThumb } from "../components/ProductThumb";
+import { useSkuLookup } from "../hooks/useSkuLookup";
+import { formatPriceField } from "../skuList";
+import { fetchRejectRows } from "../sheet";
+import { getInventorySheetName, getMovementsScriptUrl, submitMovement } from "../movements";
+import type { MovementDirection, MovementPayload, RejectRow } from "../types";
+
+const DISPOSITIONS = [
+  "Clearance sale",
+  "Mid-year sale",
+  "Allocated to customer",
+  "Internal use",
+  "Destroyed",
+  "Other",
+] as const;
+
+type FormState = {
+  direction: MovementDirection;
+  logged_by: string;
+  lot_key: string;
+  product_name: string;
+  sku: string;
+  batch_code: string;
+  expiry_date: string;
+  quantity_pcs: string;
+  defect_reason: string;
+  disposition: string;
+  notes: string;
+  rsp_per_unit: string;
+  cogs_per_unit: string;
+};
+
+const emptyForm = (direction: MovementDirection = "inbound"): FormState => ({
+  direction,
+  logged_by: "",
+  lot_key: "",
+  product_name: "",
+  sku: "",
+  batch_code: "",
+  expiry_date: "",
+  quantity_pcs: "",
+  defect_reason: DEFECT_REASONS[0],
+  disposition: DISPOSITIONS[0],
+  notes: "",
+  rsp_per_unit: "",
+  cogs_per_unit: "",
+});
+
+function lotKey(r: RejectRow): string {
+  return `${r.product_name}|||${r.batch_code}|||${r.expiry_date}|||${r.defect_reason ?? ""}`;
+}
+
+export function MovementsPage(): React.ReactElement {
+  const scriptUrl = React.useMemo(() => getMovementsScriptUrl(), []);
+  const inventorySheetName = React.useMemo(() => getInventorySheetName(), []);
+  const skuLookup = useSkuLookup(Boolean(scriptUrl));
+  const [stock, setStock] = React.useState<RejectRow[]>([]);
+  const [stockError, setStockError] = React.useState<string | null>(null);
+  const [form, setForm] = React.useState<FormState>(() => emptyForm());
+  const [defectRows, setDefectRows] = React.useState<DefectRowState[]>([]);
+  const [noExpiry, setNoExpiry] = React.useState(false);
+  const [status, setStatus] = React.useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [message, setMessage] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    fetchRejectRows()
+      .then(setStock)
+      .catch((e: unknown) => {
+        setStockError(e instanceof Error ? e.message : String(e));
+      });
+  }, []);
+
+  const products = React.useMemo(() => {
+    const names = new Set<string>();
+    for (const e of skuLookup.entries) names.add(e.product_name);
+    for (const r of stock) names.add(r.product_name);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [stock, skuLookup.entries]);
+
+  function onProductNameChange(name: string): void {
+    const entry = skuLookup.lookupEntry(name);
+    patch({
+      product_name: name,
+      lot_key: "",
+      ...(entry
+        ? {
+            sku: entry.sku,
+            rsp_per_unit: formatPriceField(entry.rsp_per_unit),
+            cogs_per_unit: formatPriceField(entry.cogs_per_unit),
+          }
+        : {}),
+    });
+  }
+
+  const qtyParsed = Number(form.quantity_pcs);
+  const qtyValid = Number.isFinite(qtyParsed) && qtyParsed > 0;
+  const qtyCapped = qtyValid ? Math.min(qtyParsed, MAX_DEFECT_LINES) : 0;
+
+  React.useEffect(() => {
+    if (form.direction !== "inbound") {
+      setDefectRows([]);
+      return;
+    }
+    if (!qtyValid) {
+      setDefectRows([]);
+      return;
+    }
+    setDefectRows((prev) => resizeDefectRows(prev, qtyCapped, form.defect_reason));
+  }, [form.direction, form.quantity_pcs, qtyCapped, qtyValid, form.defect_reason]);
+
+  function patch(partial: Partial<FormState>): void {
+    setForm((f) => ({ ...f, ...partial }));
+  }
+
+  function onDirectionChange(direction: MovementDirection): void {
+    setForm(emptyForm(direction));
+    setDefectRows([]);
+    setNoExpiry(false);
+    setStatus("idle");
+    setMessage(null);
+  }
+
+  function onQuantityChange(value: string): void {
+    patch({ quantity_pcs: value });
+  }
+
+  function onLotPick(key: string): void {
+    patch({ lot_key: key });
+    if (!key) return;
+    const row = stock.find((r) => lotKey(r) === key);
+    if (!row) return;
+    const noExp = isNoExpiry(row.expiry_date);
+    setNoExpiry(noExp);
+    const catalog = skuLookup.lookupEntry(row.product_name, row.sku);
+    patch({
+      product_name: row.product_name,
+      sku: row.sku ?? catalog?.sku ?? "",
+      batch_code: row.batch_code,
+      expiry_date: noExp ? "" : row.expiry_date,
+      rsp_per_unit:
+        row.rsp_per_unit != null
+          ? String(row.rsp_per_unit)
+          : formatPriceField(catalog?.rsp_per_unit),
+      cogs_per_unit:
+        row.cogs_per_unit != null
+          ? String(row.cogs_per_unit)
+          : formatPriceField(catalog?.cogs_per_unit),
+      defect_reason: row.defect_reason || DEFECT_REASONS[0],
+    });
+  }
+
+  function applyDefectToAll(reason: string): void {
+    setDefectRows((rows) => rows.map((r) => ({ ...r, defect_reason: reason })));
+    patch({ defect_reason: reason });
+  }
+
+  function setDefectAt(index: number, partial: Partial<DefectRowState>): void {
+    setDefectRows((rows) => {
+      const next = [...rows];
+      next[index] = { ...next[index], ...partial };
+      return next;
+    });
+  }
+
+  async function onSubmit(e: React.FormEvent): Promise<void> {
+    e.preventDefault();
+    setStatus("submitting");
+    setMessage(null);
+
+    const qty = Number(form.quantity_pcs);
+    if (!form.logged_by.trim()) {
+      setStatus("error");
+      setMessage("Please enter your name.");
+      return;
+    }
+    if (!form.product_name.trim() || !form.batch_code.trim()) {
+      setStatus("error");
+      setMessage("Product and batch are required.");
+      return;
+    }
+    if (!noExpiry && !form.expiry_date.trim()) {
+      setStatus("error");
+      setMessage("Enter an expiry date, or check “No expiry” for tools / non-dated items.");
+      return;
+    }
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setStatus("error");
+      setMessage("Quantity must be a positive number.");
+      return;
+    }
+    if (form.direction === "inbound" && qty > MAX_DEFECT_LINES) {
+      setStatus("error");
+      setMessage(`Please log at most ${MAX_DEFECT_LINES} pieces per submission (split into multiple entries).`);
+      return;
+    }
+
+    const payload: MovementPayload = {
+      inventory_sheet_name: inventorySheetName ?? undefined,
+      direction: form.direction,
+      logged_by: form.logged_by.trim(),
+      product_name: form.product_name.trim(),
+      sku: form.sku.trim() || undefined,
+      batch_code: form.batch_code.trim(),
+      expiry_date: noExpiry ? "" : normalizeExpiryValue(form.expiry_date),
+      quantity_pcs: qty,
+      notes: form.notes.trim() || undefined,
+    };
+
+    if (form.direction === "inbound") {
+      if (defectRows.length !== qty) {
+        setStatus("error");
+        setMessage("Set a defect type for each piece.");
+        return;
+      }
+      const lines = defectRowsToLines(defectRows);
+      if (lines.some((l) => !l.defect_reason)) {
+        setStatus("error");
+        setMessage("Every piece needs a defect type.");
+        return;
+      }
+      payload.defect_lines = lines;
+    } else {
+      payload.disposition = form.disposition;
+      if (form.defect_reason.trim()) payload.defect_reason = form.defect_reason.trim();
+    }
+
+    const rsp = Number(form.rsp_per_unit);
+    if (form.rsp_per_unit.trim() && Number.isFinite(rsp)) payload.rsp_per_unit = rsp;
+    const cogs = Number(form.cogs_per_unit);
+    if (form.cogs_per_unit.trim() && Number.isFinite(cogs)) payload.cogs_per_unit = cogs;
+
+    try {
+      await submitMovement(payload);
+      setStatus("success");
+      setMessage(
+        form.direction === "inbound"
+          ? `Logged inbound: ${qty} pc(s) with per-piece defects.`
+          : `Logged outbound: ${qty} pcs removed from defective stock.`,
+      );
+      setForm(emptyForm(form.direction));
+      setDefectRows([]);
+      setNoExpiry(false);
+    } catch (err: unknown) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  return (
+    <>
+      <header className="header">
+        <div>
+          <div className="title">Stock movements</div>
+          <div className="subtitle">
+            Log inbound (new defective stock) or outbound (sold, allocated, destroyed)
+          </div>
+        </div>
+      </header>
+
+      {!scriptUrl || !inventorySheetName ? (
+        <div className="card error">
+          <div className="cardTitle">Setup needed</div>
+          <div className="hint">
+            Add to <span className="mono">dashboard/.env</span>:
+            <br />
+            <span className="mono">VITE_MOVEMENTS_SCRIPT_URL</span> (Apps Script web app)
+            <br />
+            <span className="mono">VITE_INVENTORY_SHEET_NAME</span> — exact Google Sheets tab
+            name used for the published dashboard CSV (same tab, not a separate Inventory tab).
+          </div>
+        </div>
+      ) : null}
+
+      {stockError ? (
+        <div className="card">
+          <div className="cardTitle">Stock list unavailable</div>
+          <div className="hint">You can still submit manually. ({stockError})</div>
+        </div>
+      ) : null}
+
+      <form className="card formCard" onSubmit={onSubmit}>
+        <div className="directionToggle" role="group" aria-label="Movement type">
+          <button
+            type="button"
+            className={form.direction === "inbound" ? "dirBtn active" : "dirBtn"}
+            onClick={() => onDirectionChange("inbound")}
+          >
+            Inbound
+          </button>
+          <button
+            type="button"
+            className={form.direction === "outbound" ? "dirBtn active" : "dirBtn"}
+            onClick={() => onDirectionChange("outbound")}
+          >
+            Outbound
+          </button>
+        </div>
+
+        <p className="formHint">
+          {form.direction === "inbound"
+            ? "List each piece and its defect. Stock is grouped by defect type on the same batch."
+            : "Use when defective stock leaves the reject list (sale, allocation, destruction)."}
+        </p>
+
+        <div className="formGrid">
+          <label className="field">
+            <span className="fieldLabel">Logged by</span>
+            <input
+              className="fieldInput"
+              value={form.logged_by}
+              onChange={(e) => patch({ logged_by: e.target.value })}
+              placeholder="Your name"
+              required
+            />
+          </label>
+
+          {stock.length > 0 ? (
+            <label className="field fieldWide">
+              <span className="fieldLabel">Pick from current stock (optional)</span>
+              <select
+                className="fieldInput"
+                value={form.lot_key}
+                onChange={(e) => onLotPick(e.target.value)}
+              >
+                <option value="">— Manual entry —</option>
+                {stock.map((r) => {
+                  const key = lotKey(r);
+                  return (
+                    <option key={key} value={key}>
+                      {r.product_name} · {r.batch_code} · exp {formatExpiryDisplay(r.expiry_date)}
+                      {r.defect_reason ? ` · ${r.defect_reason}` : ""} · qty {r.quantity_pcs}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+          ) : null}
+
+          <label className="field fieldWide">
+            <span className="fieldLabel">Product name</span>
+            <div className="productFieldRow">
+              {form.product_name.trim() ? (
+                <ProductThumb
+                  productName={form.product_name}
+                  imageUrl={skuLookup.lookupImage(form.product_name, form.sku)}
+                  size="md"
+                />
+              ) : null}
+              <input
+                className="fieldInput"
+                list="product-list"
+                value={form.product_name}
+                onChange={(e) => onProductNameChange(e.target.value)}
+                required
+              />
+            </div>
+            <datalist id="product-list">
+              {products.map((p) => {
+                const sku = skuLookup.lookup(p);
+                return (
+                  <option key={p} value={p}>
+                    {sku ? `${p} (${sku})` : p}
+                  </option>
+                );
+              })}
+            </datalist>
+            {skuLookup.loading ? (
+              <span className="fieldHint">Loading SKU list…</span>
+            ) : skuLookup.entries.length ? (
+              <span className="fieldHint">SKU auto-fills from SKUList tab when product matches.</span>
+            ) : null}
+          </label>
+
+          <label className="field">
+            <span className="fieldLabel">SKU</span>
+            <input
+              className="fieldInput mono"
+              value={form.sku}
+              onChange={(e) => patch({ sku: e.target.value })}
+              placeholder={skuLookup.entries.length ? "From SKUList if matched" : "Optional"}
+            />
+          </label>
+
+          <label className="field">
+            <span className="fieldLabel">Batch code</span>
+            <input
+              className="fieldInput mono"
+              value={form.batch_code}
+              onChange={(e) => patch({ batch_code: e.target.value })}
+              required
+            />
+          </label>
+
+          <label className="field">
+            <span className="fieldLabel">Expiry date</span>
+            <input
+              className="fieldInput mono"
+              type="date"
+              value={form.expiry_date}
+              onChange={(e) => patch({ expiry_date: e.target.value })}
+              disabled={noExpiry}
+              required={!noExpiry}
+            />
+          </label>
+
+          <label className="field fieldCheck">
+            <span className="fieldLabel">&nbsp;</span>
+            <label className="checkRow">
+              <input
+                type="checkbox"
+                checked={noExpiry}
+                onChange={(e) => {
+                  setNoExpiry(e.target.checked);
+                  if (e.target.checked) patch({ expiry_date: "" });
+                }}
+              />
+              <span>No expiry (tools / non-dated)</span>
+            </label>
+          </label>
+
+          <label className="field">
+            <span className="fieldLabel">Quantity (pcs)</span>
+            <input
+              className="fieldInput"
+              type="number"
+              min={1}
+              max={MAX_DEFECT_LINES}
+              step={1}
+              value={form.quantity_pcs}
+              onChange={(e) => onQuantityChange(e.target.value)}
+              required
+            />
+          </label>
+
+          {form.direction === "outbound" ? (
+            <label className="field fieldWide">
+              <span className="fieldLabel">Outbound reason</span>
+              <select
+                className="fieldInput"
+                value={form.disposition}
+                onChange={(e) => patch({ disposition: e.target.value })}
+              >
+                {DISPOSITIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          <label className="field">
+            <span className="fieldLabel">RSP / unit (optional)</span>
+            <input
+              className="fieldInput"
+              type="number"
+              min={0}
+              value={form.rsp_per_unit}
+              onChange={(e) => patch({ rsp_per_unit: e.target.value })}
+              placeholder={skuLookup.entries.length ? "From SKUList if matched" : undefined}
+            />
+          </label>
+
+          <label className="field">
+            <span className="fieldLabel">COGS / unit (optional)</span>
+            <input
+              className="fieldInput"
+              type="number"
+              min={0}
+              value={form.cogs_per_unit}
+              onChange={(e) => patch({ cogs_per_unit: e.target.value })}
+              placeholder={skuLookup.entries.length ? "From SKUList if matched" : undefined}
+            />
+          </label>
+
+          <label className="field fieldWide">
+            <span className="fieldLabel">Notes</span>
+            <textarea
+              className="fieldInput fieldTextarea"
+              rows={3}
+              value={form.notes}
+              onChange={(e) => patch({ notes: e.target.value })}
+              placeholder="Optional details (PO, customer, location, etc.)"
+            />
+          </label>
+        </div>
+
+        {form.direction === "inbound" && qtyValid ? (
+          <div className="defectListCard">
+            <div className="defectListHead">
+              <div>
+                <div className="cardTitle">Defect per piece</div>
+                <p className="formHint">Attach 1–2 photos per piece (optional). Saved with this inbound entry.</p>
+              </div>
+              <label className="applyAllField">
+                <span className="fieldLabel">Apply to all</span>
+                <select
+                  className="fieldInput"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) applyDefectToAll(e.target.value);
+                  }}
+                >
+                  <option value="">Choose defect…</option>
+                  {DEFECT_REASONS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {qtyParsed > MAX_DEFECT_LINES ? (
+              <p className="formHint">
+                Quantity exceeds {MAX_DEFECT_LINES} — only the first {MAX_DEFECT_LINES} pieces are
+                shown. Split into multiple submissions.
+              </p>
+            ) : null}
+
+            <div className="defectListScroll">
+              <table className="defectListTable">
+                <thead>
+                  <tr>
+                    <th className="defectPcCol">Pc #</th>
+                    <th>Defect type</th>
+                    <th>Photos (max 2)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {defectRows.map((row, i) => (
+                    <tr key={i}>
+                      <td className="defectPcCol mono">{i + 1}</td>
+                      <td>
+                        <select
+                          className="fieldInput"
+                          value={row.defect_reason}
+                          onChange={(e) => setDefectAt(i, { defect_reason: e.target.value })}
+                          required
+                        >
+                          {DEFECT_REASONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <DefectPhotoPicker
+                          photos={row.photos}
+                          onChange={(photos) => setDefectAt(i, { photos })}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+        {message ? (
+          <div className={status === "success" ? "formBanner success" : "formBanner error"}>
+            {message}
+          </div>
+        ) : null}
+
+        <div className="formActions">
+          <button
+            type="submit"
+            className="primaryBtn"
+            disabled={status === "submitting" || !scriptUrl || !inventorySheetName}
+          >
+            {status === "submitting" ? "Uploading & saving…" : "Save movement"}
+          </button>
+        </div>
+      </form>
+    </>
+  );
+}
