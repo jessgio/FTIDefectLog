@@ -111,6 +111,7 @@ Add a worksheet tab named **`SKUList`** with headers:
 
 - `product_name` (or `product`)
 - `sku`
+- `product_category` (optional — used on the dashboard “Defects by product category” chart; aliases: `category`, `product category`)
 - `image_url` (optional — HTTPS link to a product photo; aliases: `image`, `product_image`, `photo`)
 - `rsp` (optional — retail price per unit; aliases: `rsp_per_unit`, `retail price`)
 - `cogs` (optional — cost per unit; aliases: `cogs_per_unit`, `cost`)

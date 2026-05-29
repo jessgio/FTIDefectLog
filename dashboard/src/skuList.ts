@@ -1,12 +1,69 @@
 import { normalizeImageUrl, stripProductSuffix } from "./productImage";
+import type { RejectRow } from "./types";
 
 export type SkuEntry = {
   product_name: string;
   sku: string;
+  /** From SKUList tab (aliases: category, product category) */
+  product_category?: string;
   image_url?: string;
   rsp_per_unit?: number;
   cogs_per_unit?: number;
 };
+
+const UNCATEGORIZED = "Uncategorized";
+
+export function buildCategoryMaps(entries: SkuEntry[]): {
+  byProduct: Map<string, string>;
+  bySku: Map<string, string>;
+} {
+  const byProduct = new Map<string, string>();
+  const bySku = new Map<string, string>();
+  for (const e of entries) {
+    const cat = (e.product_category ?? "").trim();
+    if (!cat) continue;
+    const name = e.product_name.trim();
+    const sku = e.sku.trim();
+    if (name) byProduct.set(normalizeProductKey(name), cat);
+    if (sku) bySku.set(sku.toLowerCase(), cat);
+  }
+  return { byProduct, bySku };
+}
+
+export function resolveProductCategory(
+  entries: SkuEntry[],
+  maps: ReturnType<typeof buildCategoryMaps>,
+  productName: string,
+  sku?: string,
+): string {
+  if (sku?.trim()) {
+    const bySku = maps.bySku.get(sku.trim().toLowerCase());
+    if (bySku) return bySku;
+  }
+  const fromMap = maps.byProduct.get(normalizeProductKey(productName));
+  if (fromMap) return fromMap;
+
+  const entry = lookupEntryFuzzy(entries, productName, sku);
+  const fromEntry = (entry?.product_category ?? "").trim();
+  if (fromEntry) return fromEntry;
+
+  return UNCATEGORIZED;
+}
+
+/** Sum defective pcs per SKUList product_category for inventory rows. */
+export function computePcsByCategory(rows: RejectRow[], entries: SkuEntry[]): Record<string, number> {
+  const maps = buildCategoryMaps(entries);
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    const cat = resolveProductCategory(entries, maps, r.product_name, r.sku);
+    out[cat] = (out[cat] ?? 0) + (r.quantity_pcs || 0);
+  }
+  return out;
+}
+
+export function skuListHasCategories(entries: SkuEntry[]): boolean {
+  return entries.some((e) => (e.product_category ?? "").trim().length > 0);
+}
 
 export function normalizeProductKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");

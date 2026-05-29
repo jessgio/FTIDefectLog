@@ -123,6 +123,10 @@ function loadSkuMap_() {
   if (iCogs < 0) iCogs = headers.indexOf("cogs_per_unit");
   if (iCogs < 0) iCogs = headers.indexOf("cost");
 
+  let iCategory = headers.indexOf("product_category");
+  if (iCategory < 0) iCategory = headers.indexOf("category");
+  if (iCategory < 0) iCategory = headers.indexOf("product category");
+
   if (iProduct < 0 || iSku < 0) {
     throw new Error('SKUList tab must have "product_name" (or "product") and "sku" columns.');
   }
@@ -136,8 +140,11 @@ function loadSkuMap_() {
     const imageUrl = normalizeImageUrl_(imageRaw);
     const rsp = iRsp >= 0 ? parseSheetPrice_(data[r][iRsp]) : null;
     const cogs = iCogs >= 0 ? parseSheetPrice_(data[r][iCogs]) : null;
+    const category =
+      iCategory >= 0 ? String(data[r][iCategory] || "").trim() : "";
 
     const catalog = { sku: sku, product_name: product };
+    if (category) catalog.product_category = category;
     if (imageUrl) catalog.image_url = imageUrl;
     if (rsp != null) catalog.rsp_per_unit = rsp;
     if (cogs != null) catalog.cogs_per_unit = cogs;
@@ -147,6 +154,7 @@ function loadSkuMap_() {
     bySku[sku.toLowerCase()] = catalog;
 
     const entry = { product_name: product, sku: sku };
+    if (category) entry.product_category = category;
     if (imageUrl) entry.image_url = imageUrl;
     if (rsp != null) entry.rsp_per_unit = rsp;
     if (cogs != null) entry.cogs_per_unit = cogs;

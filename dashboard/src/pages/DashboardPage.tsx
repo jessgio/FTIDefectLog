@@ -4,6 +4,7 @@ import { AggregateTable } from "../components/AggregateTable";
 import { compareExpiryAsc, formatExpiryDisplay } from "../expiry";
 import { formatCurrencyIdr, formatInt, valueOrDash } from "../format";
 import { computeMetrics } from "../metrics";
+import { computePcsByCategory, skuListHasCategories } from "../skuList";
 import { ProductThumb } from "../components/ProductThumb";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { ProductDetailModal } from "../components/ProductDetailModal";
@@ -198,6 +199,16 @@ export function DashboardPage(): React.ReactElement {
     return filtered ? computeMetrics(filtered) : null;
   }, [filtered]);
 
+  const pcsByCategory = React.useMemo(() => {
+    if (!filtered) return null;
+    return computePcsByCategory(filtered, skuLookup.entries);
+  }, [filtered, skuLookup.entries]);
+
+  const categoryRows = React.useMemo(() => {
+    if (!pcsByCategory || !metrics) return [];
+    return Object.entries(pcsByCategory).sort(([, a], [, b]) => b - a);
+  }, [pcsByCategory, metrics]);
+
   const aggregateGroupBy: AggregateGroupBy | null =
     tableView === "product" ? "product_name" : tableView === "sku" ? "sku" : null;
 
@@ -322,6 +333,51 @@ export function DashboardPage(): React.ReactElement {
                   );
                 })}
             </div>
+          </section>
+
+          <section className="card">
+            <div className="cardTitle">Defects by product category (pcs)</div>
+            {!scriptUrl ? (
+              <p className="hint">
+                Configure <span className="mono">VITE_MOVEMENTS_SCRIPT_URL</span> to load categories
+                from the SKUList tab.
+              </p>
+            ) : skuLookup.loading ? (
+              <p className="hint">Loading SKUList categories…</p>
+            ) : skuLookup.loadError ? (
+              <p className="hint warnHint">SKUList unavailable: {skuLookup.loadError}</p>
+            ) : !skuListHasCategories(skuLookup.entries) ? (
+              <p className="hint">
+                Add a <span className="mono">product_category</span> column on the SKUList tab
+                (aliases: <span className="mono">category</span>,{" "}
+                <span className="mono">product category</span>), then redeploy Apps Script.
+              </p>
+            ) : categoryRows.length ? (
+              <div className="barWrap" role="img" aria-label="Defective stock by product category">
+                {categoryRows.map(([category, pcs]) => {
+                  const pct = metrics.totalPcs ? (pcs / metrics.totalPcs) * 100 : 0;
+                  return (
+                    <div key={category} className="barRow barRowCategory">
+                      <div className="barLabel" title={category}>
+                        {category}
+                      </div>
+                      <div className="bar">
+                        <div className="barFill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="barValue">{formatInt(pcs)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="hint">No defective stock in the current filter.</p>
+            )}
+            {skuListHasCategories(skuLookup.entries) && categoryRows.length > 0 ? (
+              <div className="hint">
+                Grouped via SKUList · matches product name or SKU · unmapped lots show as
+                Uncategorized
+              </div>
+            ) : null}
           </section>
 
           <section className="card">
