@@ -9,6 +9,7 @@ import {
 } from "../defectForm";
 import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
 import { ProductPicker } from "../components/ProductPicker";
+import { useSkuLookup } from "../hooks/useSkuLookup";
 import { formatPriceField, type SkuEntry } from "../skuList";
 import { fetchRejectRows } from "../sheet";
 import { getInventorySheetName, getMovementsScriptUrl, submitMovement } from "../movements";
