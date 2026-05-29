@@ -396,9 +396,17 @@ section.card + section.card {
 .colProductImage {
   width: 52px;
   min-width: 52px;
+  max-width: 52px;
   padding-left: 10px;
   padding-right: 4px;
   text-align: center;
+}
+
+/* Frozen image + product columns while horizontally scrolling (mobile) */
+.colStickyProduct {
+  min-width: 140px;
+  max-width: 200px;
+  width: 168px;
 }
 
 .productThumb {
@@ -1217,6 +1225,56 @@ section.card + section.card {
 
   .tableWrap {
     -webkit-overflow-scrolling: touch;
+  }
+
+  .tableWrap--stickyCols {
+    --sticky-col-image-end: 56px;
+    --sticky-col-product-end: calc(var(--sticky-col-image-end) + 168px);
+    --sticky-head-row2-top: 44px;
+  }
+
+  .tableWrap--stickyCols .table th.colStickyLeft,
+  .tableWrap--stickyCols .table td.colStickyLeft {
+    position: sticky;
+    z-index: 2;
+    background: var(--surface);
+  }
+
+  .tableWrap--stickyCols .table thead th.colStickyLeft {
+    z-index: 4;
+    background: var(--surface-2);
+  }
+
+  .tableWrap--stickyCols .table thead tr:nth-child(2) th {
+    top: var(--sticky-head-row2-top);
+  }
+
+  .tableWrap--stickyCols .table thead tr:nth-child(2) th.colStickyLeft {
+    z-index: 5;
+  }
+
+  .tableWrap--stickyCols .table tbody tr:hover td.colStickyLeft {
+    background: var(--surface-3);
+  }
+
+  .tableWrap--stickyCols .colStickyLeft--0 {
+    left: 0;
+  }
+
+  .tableWrap--stickyCols .colStickyLeft--1 {
+    left: var(--sticky-col-image-end);
+    box-shadow: 6px 0 10px -6px rgba(15, 23, 42, 0.14);
+  }
+
+  .tableWrap--stickyCols .colStickyProduct {
+    white-space: normal;
+    word-break: break-word;
+    vertical-align: top;
+  }
+
+  .tableWrap--stickyCols .colStickyProduct .productLink {
+    text-align: left;
+    max-width: 100%;
   }
 
   .tableSectionHead {

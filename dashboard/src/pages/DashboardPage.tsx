@@ -424,12 +424,15 @@ export function DashboardPage(): React.ReactElement {
               />
             ) : (
             <>
-            <div className="tableWrap">
+            <div className="tableWrap tableWrap--stickyCols">
               <table className="table">
                 <thead>
                   <tr>
-                    <th className="colProductImage" aria-label="Product image" />
-                    <th>
+                    <th
+                      className="colProductImage colStickyLeft colStickyLeft--0"
+                      aria-label="Product image"
+                    />
+                    <th className="colStickyProduct colStickyLeft colStickyLeft--1">
                       <button
                         type="button"
                         className="thButton"
@@ -550,8 +553,8 @@ export function DashboardPage(): React.ReactElement {
                     </th>
                   </tr>
                   <tr>
-                    <th className="colProductImage" />
-                    <th>
+                    <th className="colProductImage colStickyLeft colStickyLeft--0" />
+                    <th className="colStickyProduct colStickyLeft colStickyLeft--1">
                       <input
                         className="thFilter"
                         value={filters.product_name ?? ""}
@@ -636,13 +639,13 @@ export function DashboardPage(): React.ReactElement {
                 <tbody>
                   {filtered?.map((r, idx) => (
                     <tr key={`${r.product_name}-${r.batch_code}-${r.expiry_date}-${idx}`}>
-                      <td className="colProductImage">
+                      <td className="colProductImage colStickyLeft colStickyLeft--0">
                         <ProductThumb
                           productName={r.product_name}
                           imageUrl={getProductImage(r.product_name, r.image_url, r.sku)}
                         />
                       </td>
-                      <td>
+                      <td className="colStickyProduct colStickyLeft colStickyLeft--1">
                         <button
                           type="button"
                           className="productLink"

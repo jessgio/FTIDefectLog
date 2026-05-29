@@ -83,12 +83,15 @@ export function AggregateTable({
           aria-label="Filter aggregate rows"
         />
       </div>
-      <div className="tableWrap">
+      <div className="tableWrap tableWrap--stickyCols">
         <table className="table tableAggregate">
           <thead>
             <tr>
-              <th className="colProductImage" aria-label="Product image" />
-              <th>
+              <th
+                className="colProductImage colStickyLeft colStickyLeft--0"
+                aria-label="Product image"
+              />
+              <th className="colStickyProduct colStickyLeft colStickyLeft--1">
                 <button type="button" className="thButton" onClick={() => toggleSort("label")}>
                   {groupBy === "sku" ? "SKU" : "Product"}
                   {sortMark("label")}
@@ -170,13 +173,13 @@ export function AggregateTable({
           <tbody>
             {sorted.map((r) => (
               <tr key={r.group_key}>
-                <td className="colProductImage">
+                <td className="colProductImage colStickyLeft colStickyLeft--0">
                   <ProductThumb
                     productName={r.product_name}
                     imageUrl={getProductImage?.(r.product_name, r.sku)}
                   />
                 </td>
-                <td>
+                <td className="colStickyProduct colStickyLeft colStickyLeft--1">
                   {groupBy === "sku" ? (
                     <span className="mono">{r.label}</span>
                   ) : onProductClick ? (
