@@ -479,10 +479,14 @@ section.card + section.card {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 .productFieldRow .fieldInput {
   flex: 1;
   min-width: 0;
+  width: auto;
 }
 
 .table th {
@@ -598,6 +602,8 @@ section.card + section.card {
    ============================================================ */
 .formCard {
   margin-top: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .formHint {
@@ -643,11 +649,13 @@ section.card + section.card {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 16px;
+  width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 720px) {
   .formGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -655,10 +663,13 @@ section.card + section.card {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .fieldWide {
   grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .fieldLabel {
@@ -668,6 +679,10 @@ section.card + section.card {
 }
 
 .fieldInput {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   border-radius: var(--r-md);
   border: 1px solid var(--border);
@@ -1084,7 +1099,8 @@ section.card + section.card {
 }
 
 .defectPhotoPicker {
-  min-width: 140px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .defectPhotoThumbs {
@@ -1223,6 +1239,7 @@ section.card + section.card {
 
   .page {
     padding: 18px 14px 40px;
+    overflow-x: clip;
   }
 
   .header {
@@ -1247,6 +1264,8 @@ section.card + section.card {
   .card {
     padding: 16px;
     border-radius: var(--r-md);
+    min-width: 0;
+    max-width: 100%;
   }
   .big {
     font-size: 24px;
@@ -1267,20 +1286,60 @@ section.card + section.card {
 
   .tableWrap--stickyCols {
     --sticky-head-row2-top: 44px;
+    --sticky-col-bg: #ffffff;
+    --sticky-col-head-bg: #f4f6fb;
+    --sticky-col-hover-bg: #eef1f8;
+    isolation: isolate;
   }
 
   .tableWrap--stickyCols .table th.colStickyImage,
   .tableWrap--stickyCols .table td.colStickyImage {
     position: sticky;
     left: 0;
+    z-index: 3;
+    background-color: var(--sticky-col-bg);
+    background-clip: padding-box;
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 10px -4px rgba(15, 23, 42, 0.12);
+  }
+
+  /* Opaque edge + soft fade so scrolling text never shows through */
+  .tableWrap--stickyCols .table th.colStickyImage::after,
+  .tableWrap--stickyCols .table td.colStickyImage::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    transform: translateX(calc(100% - 1px));
+    pointer-events: none;
     z-index: 2;
-    background: var(--surface);
-    box-shadow: 6px 0 10px -6px rgba(15, 23, 42, 0.14);
+  }
+
+  .tableWrap--stickyCols .table td.colStickyImage::after {
+    background: linear-gradient(
+      90deg,
+      var(--sticky-col-bg) 0%,
+      var(--sticky-col-bg) 35%,
+      rgba(255, 255, 255, 0.98) 55%,
+      transparent 100%
+    );
   }
 
   .tableWrap--stickyCols .table thead th.colStickyImage {
-    z-index: 4;
-    background: var(--surface-2);
+    z-index: 6;
+    background-color: var(--sticky-col-head-bg);
+  }
+
+  .tableWrap--stickyCols .table thead th.colStickyImage::after {
+    background: linear-gradient(
+      90deg,
+      var(--sticky-col-head-bg) 0%,
+      var(--sticky-col-head-bg) 35%,
+      rgba(244, 246, 251, 0.98) 55%,
+      transparent 100%
+    );
   }
 
   .tableWrap--stickyCols .table thead tr:nth-child(2) th {
@@ -1288,11 +1347,27 @@ section.card + section.card {
   }
 
   .tableWrap--stickyCols .table thead tr:nth-child(2) th.colStickyImage {
-    z-index: 5;
+    z-index: 8;
   }
 
   .tableWrap--stickyCols .table tbody tr:hover td.colStickyImage {
-    background: var(--surface-3);
+    background-color: var(--sticky-col-hover-bg);
+  }
+
+  .tableWrap--stickyCols .table tbody tr:hover td.colStickyImage::after {
+    background: linear-gradient(
+      90deg,
+      var(--sticky-col-hover-bg) 0%,
+      var(--sticky-col-hover-bg) 35%,
+      rgba(238, 241, 248, 0.98) 55%,
+      transparent 100%
+    );
+  }
+
+  .tableWrap--stickyCols .colProductImage .productThumb,
+  .tableWrap--stickyCols .colProductImage .productThumbPlaceholder {
+    position: relative;
+    z-index: 1;
   }
 
   .tableSectionHead {
@@ -1313,12 +1388,127 @@ section.card + section.card {
     width: 100%;
   }
 
+  /* Stock entry — single column, contained inputs */
+  .formCard {
+    overflow-x: clip;
+  }
+
+  .formGrid {
+    gap: 12px;
+  }
+
+  .fieldWide {
+    grid-column: 1;
+  }
+
+  .fieldCheck {
+    align-self: stretch;
+  }
+
+  .checkRow {
+    padding: 4px 0 0;
+  }
+
+  .productFieldRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .productFieldRow .fieldInput {
+    width: 100%;
+  }
+
   .defectListHead {
     flex-direction: column;
     align-items: stretch;
   }
+
   .applyAllField {
     min-width: 0;
+    width: 100%;
+  }
+
+  /* Defect-per-piece: card stack instead of wide table */
+  .defectListScroll {
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .defectListTable {
+    display: block;
+    width: 100%;
+  }
+
+  .defectListTable thead {
+    display: none;
+  }
+
+  .defectListTable tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .defectListTable tbody tr {
+    display: block;
+    padding: 12px;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+  }
+
+  .defectListTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .defectListTable td {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .defectListTable td + td {
+    margin-top: 10px;
+  }
+
+  .defectListTable td.defectPcCol {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+
+  .defectListTable td.defectPcCol::before {
+    content: "Piece ";
+  }
+
+  .defectListTable td:nth-child(2)::before {
+    content: "Defect type";
+    display: block;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .defectListTable td:nth-child(3)::before {
+    content: "Photos (max 2)";
+    display: block;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .defectListTable .fieldInput {
+    width: 100%;
   }
 
   .modalBackdrop {
