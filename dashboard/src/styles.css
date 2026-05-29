@@ -402,13 +402,6 @@ section.card + section.card {
   text-align: center;
 }
 
-/* Frozen image + product columns while horizontally scrolling (mobile) */
-.colStickyProduct {
-  min-width: 140px;
-  max-width: 200px;
-  width: 168px;
-}
-
 .productThumb {
   display: block;
   width: 40px;
@@ -1228,19 +1221,19 @@ section.card + section.card {
   }
 
   .tableWrap--stickyCols {
-    --sticky-col-image-end: 56px;
-    --sticky-col-product-end: calc(var(--sticky-col-image-end) + 168px);
     --sticky-head-row2-top: 44px;
   }
 
-  .tableWrap--stickyCols .table th.colStickyLeft,
-  .tableWrap--stickyCols .table td.colStickyLeft {
+  .tableWrap--stickyCols .table th.colStickyImage,
+  .tableWrap--stickyCols .table td.colStickyImage {
     position: sticky;
+    left: 0;
     z-index: 2;
     background: var(--surface);
+    box-shadow: 6px 0 10px -6px rgba(15, 23, 42, 0.14);
   }
 
-  .tableWrap--stickyCols .table thead th.colStickyLeft {
+  .tableWrap--stickyCols .table thead th.colStickyImage {
     z-index: 4;
     background: var(--surface-2);
   }
@@ -1249,32 +1242,12 @@ section.card + section.card {
     top: var(--sticky-head-row2-top);
   }
 
-  .tableWrap--stickyCols .table thead tr:nth-child(2) th.colStickyLeft {
+  .tableWrap--stickyCols .table thead tr:nth-child(2) th.colStickyImage {
     z-index: 5;
   }
 
-  .tableWrap--stickyCols .table tbody tr:hover td.colStickyLeft {
+  .tableWrap--stickyCols .table tbody tr:hover td.colStickyImage {
     background: var(--surface-3);
-  }
-
-  .tableWrap--stickyCols .colStickyLeft--0 {
-    left: 0;
-  }
-
-  .tableWrap--stickyCols .colStickyLeft--1 {
-    left: var(--sticky-col-image-end);
-    box-shadow: 6px 0 10px -6px rgba(15, 23, 42, 0.14);
-  }
-
-  .tableWrap--stickyCols .colStickyProduct {
-    white-space: normal;
-    word-break: break-word;
-    vertical-align: top;
-  }
-
-  .tableWrap--stickyCols .colStickyProduct .productLink {
-    text-align: left;
-    max-width: 100%;
   }
 
   .tableSectionHead {

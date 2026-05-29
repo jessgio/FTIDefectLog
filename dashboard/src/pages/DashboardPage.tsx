@@ -429,10 +429,10 @@ export function DashboardPage(): React.ReactElement {
                 <thead>
                   <tr>
                     <th
-                      className="colProductImage colStickyLeft colStickyLeft--0"
+                      className="colProductImage colStickyImage"
                       aria-label="Product image"
                     />
-                    <th className="colStickyProduct colStickyLeft colStickyLeft--1">
+                    <th>
                       <button
                         type="button"
                         className="thButton"
@@ -553,8 +553,8 @@ export function DashboardPage(): React.ReactElement {
                     </th>
                   </tr>
                   <tr>
-                    <th className="colProductImage colStickyLeft colStickyLeft--0" />
-                    <th className="colStickyProduct colStickyLeft colStickyLeft--1">
+                    <th className="colProductImage colStickyImage" />
+                    <th>
                       <input
                         className="thFilter"
                         value={filters.product_name ?? ""}
@@ -639,13 +639,13 @@ export function DashboardPage(): React.ReactElement {
                 <tbody>
                   {filtered?.map((r, idx) => (
                     <tr key={`${r.product_name}-${r.batch_code}-${r.expiry_date}-${idx}`}>
-                      <td className="colProductImage colStickyLeft colStickyLeft--0">
+                      <td className="colProductImage colStickyImage">
                         <ProductThumb
                           productName={r.product_name}
                           imageUrl={getProductImage(r.product_name, r.image_url, r.sku)}
                         />
                       </td>
-                      <td className="colStickyProduct colStickyLeft colStickyLeft--1">
+                      <td>
                         <button
                           type="button"
                           className="productLink"

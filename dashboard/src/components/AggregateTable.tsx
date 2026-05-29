@@ -88,10 +88,10 @@ export function AggregateTable({
           <thead>
             <tr>
               <th
-                className="colProductImage colStickyLeft colStickyLeft--0"
+                className="colProductImage colStickyImage"
                 aria-label="Product image"
               />
-              <th className="colStickyProduct colStickyLeft colStickyLeft--1">
+              <th>
                 <button type="button" className="thButton" onClick={() => toggleSort("label")}>
                   {groupBy === "sku" ? "SKU" : "Product"}
                   {sortMark("label")}
@@ -173,13 +173,13 @@ export function AggregateTable({
           <tbody>
             {sorted.map((r) => (
               <tr key={r.group_key}>
-                <td className="colProductImage colStickyLeft colStickyLeft--0">
+                <td className="colProductImage colStickyImage">
                   <ProductThumb
                     productName={r.product_name}
                     imageUrl={getProductImage?.(r.product_name, r.sku)}
                   />
                 </td>
-                <td className="colStickyProduct colStickyLeft colStickyLeft--1">
+                <td>
                   {groupBy === "sku" ? (
                     <span className="mono">{r.label}</span>
                   ) : onProductClick ? (

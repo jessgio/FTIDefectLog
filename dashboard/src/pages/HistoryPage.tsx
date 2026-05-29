@@ -159,10 +159,10 @@ export function HistoryPage(): React.ReactElement {
                   <th>When</th>
                   <th>Type</th>
                   <th
-                    className="colProductImage colStickyLeft colStickyLeft--0"
+                    className="colProductImage colStickyImage"
                     aria-label="Product image"
                   />
-                  <th className="colStickyProduct colStickyLeft colStickyLeft--1">Product</th>
+                  <th>Product</th>
                   <th>Batch</th>
                   <th>Expiry</th>
                   <th className="num">Qty</th>
@@ -176,15 +176,13 @@ export function HistoryPage(): React.ReactElement {
                   <tr key={r.movement_id}>
                     <td className="mono">{formatWhen(r.timestamp_utc)}</td>
                     <td>{r.direction === "inbound" ? "Inbound" : "Outbound"}</td>
-                    <td className="colProductImage colStickyLeft colStickyLeft--0">
+                    <td className="colProductImage colStickyImage">
                       <ProductThumb
                         productName={r.product_name}
                         imageUrl={skuLookup.lookupImage(r.product_name, r.sku)}
                       />
                     </td>
-                    <td className="colStickyProduct colStickyLeft colStickyLeft--1">
-                      {r.product_name}
-                    </td>
+                    <td>{r.product_name}</td>
                     <td className="mono">{r.batch_code}</td>
                     <td className="mono">{formatExpiryDisplay(r.expiry_date)}</td>
                     <td className="num">{formatInt(r.quantity_pcs)}</td>
