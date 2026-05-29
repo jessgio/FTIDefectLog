@@ -1,11 +1,11 @@
 import React from "react";
-import { DefectPhotoPicker } from "../components/DefectPhotoPicker";
+import { DefectGroupList } from "../components/DefectGroupList";
 import { DEFECT_REASONS, MAX_DEFECT_LINES } from "../defectReasons";
 import {
-  defectRowsToLines,
-  emptyDefectRow,
-  resizeDefectRows,
-  type DefectRowState,
+  defectGroupsToLines,
+  syncDefectGroupsToQuantity,
+  validateDefectGroups,
+  type DefectGroupRowState,
 } from "../defectForm";
 import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
 import { ProductPicker } from "../components/ProductPicker";
@@ -67,7 +67,7 @@ export function MovementsPage(): React.ReactElement {
   const [stock, setStock] = React.useState<RejectRow[]>([]);
   const [stockError, setStockError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<FormState>(() => emptyForm());
-  const [defectRows, setDefectRows] = React.useState<DefectRowState[]>([]);
+  const [defectGroups, setDefectGroups] = React.useState<DefectGroupRowState[]>([]);
   const [noExpiry, setNoExpiry] = React.useState(false);
   const [status, setStatus] = React.useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = React.useState<string | null>(null);
@@ -112,19 +112,18 @@ export function MovementsPage(): React.ReactElement {
 
   const qtyParsed = Number(form.quantity_pcs);
   const qtyValid = Number.isFinite(qtyParsed) && qtyParsed > 0;
-  const qtyCapped = qtyValid ? Math.min(qtyParsed, MAX_DEFECT_LINES) : 0;
 
   React.useEffect(() => {
     if (form.direction !== "inbound") {
-      setDefectRows([]);
+      setDefectGroups([]);
       return;
     }
     if (!qtyValid) {
-      setDefectRows([]);
+      setDefectGroups([]);
       return;
     }
-    setDefectRows((prev) => resizeDefectRows(prev, qtyCapped, form.defect_reason));
-  }, [form.direction, form.quantity_pcs, qtyCapped, qtyValid, form.defect_reason]);
+    setDefectGroups((prev) => syncDefectGroupsToQuantity(prev, qtyParsed, form.defect_reason));
+  }, [form.direction, form.quantity_pcs, qtyParsed, qtyValid, form.defect_reason]);
 
   function patch(partial: Partial<FormState>): void {
     setForm((f) => ({ ...f, ...partial }));
@@ -132,7 +131,7 @@ export function MovementsPage(): React.ReactElement {
 
   function onDirectionChange(direction: MovementDirection): void {
     setForm(emptyForm(direction));
-    setDefectRows([]);
+    setDefectGroups([]);
     setNoExpiry(false);
     setStatus("idle");
     setMessage(null);
@@ -164,19 +163,6 @@ export function MovementsPage(): React.ReactElement {
           ? String(row.cogs_per_unit)
           : formatPriceField(catalog?.cogs_per_unit),
       defect_reason: row.defect_reason || DEFECT_REASONS[0],
-    });
-  }
-
-  function applyDefectToAll(reason: string): void {
-    setDefectRows((rows) => rows.map((r) => ({ ...r, defect_reason: reason })));
-    patch({ defect_reason: reason });
-  }
-
-  function setDefectAt(index: number, partial: Partial<DefectRowState>): void {
-    setDefectRows((rows) => {
-      const next = [...rows];
-      next[index] = { ...next[index], ...partial };
-      return next;
     });
   }
 
@@ -224,18 +210,13 @@ export function MovementsPage(): React.ReactElement {
     };
 
     if (form.direction === "inbound") {
-      if (defectRows.length !== qty) {
+      const defectErr = validateDefectGroups(defectGroups, qty);
+      if (defectErr) {
         setStatus("error");
-        setMessage("Set a defect type for each piece.");
+        setMessage(defectErr);
         return;
       }
-      const lines = defectRowsToLines(defectRows);
-      if (lines.some((l) => !l.defect_reason)) {
-        setStatus("error");
-        setMessage("Every piece needs a defect type.");
-        return;
-      }
-      payload.defect_lines = lines;
+      payload.defect_lines = defectGroupsToLines(defectGroups);
     } else {
       payload.disposition = form.disposition;
       if (form.defect_reason.trim()) payload.defect_reason = form.defect_reason.trim();
@@ -251,11 +232,11 @@ export function MovementsPage(): React.ReactElement {
       setStatus("success");
       setMessage(
         form.direction === "inbound"
-          ? `Logged inbound: ${qty} pc(s) with per-piece defects.`
+          ? `Logged inbound: ${qty} pc(s) with defect breakdown.`
           : `Logged outbound: ${qty} pcs removed from defective stock.`,
       );
       setForm(emptyForm(form.direction));
-      setDefectRows([]);
+      setDefectGroups([]);
       setNoExpiry(false);
       fetchInventoryLots()
         .then(setStock)
@@ -304,7 +285,7 @@ export function MovementsPage(): React.ReactElement {
 
         <p className="formHint">
           {form.direction === "inbound"
-            ? "List each piece and its defect. Stock is grouped by defect type on the same batch."
+            ? "Enter how many pcs have each defect type. Stock is grouped by defect on the same batch."
             : "Use when defective stock leaves the reject list (sale, allocation, destruction)."}
         </p>
 
@@ -472,78 +453,20 @@ export function MovementsPage(): React.ReactElement {
           </label>
         </div>
 
-        {form.direction === "inbound" && qtyValid ? (
-          <div className="defectListCard">
-            <div className="defectListHead">
-              <div>
-                <div className="cardTitle">Defect per piece</div>
-                <p className="formHint">Attach 1–2 photos per piece (optional). Saved with this inbound entry.</p>
-              </div>
-              <label className="applyAllField">
-                <span className="fieldLabel">Apply to all</span>
-                <select
-                  className="fieldInput"
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) applyDefectToAll(e.target.value);
-                  }}
-                >
-                  <option value="">Choose defect…</option>
-                  {DEFECT_REASONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+        {form.direction === "inbound" && qtyValid && qtyParsed <= MAX_DEFECT_LINES ? (
+          <DefectGroupList
+            totalQty={qtyParsed}
+            groups={defectGroups}
+            onChange={setDefectGroups}
+            defaultReason={form.defect_reason}
+            hint="Attach up to 2 photos per row (optional). Saved with this inbound entry."
+          />
+        ) : null}
 
-            {qtyParsed > MAX_DEFECT_LINES ? (
-              <p className="formHint">
-                Quantity exceeds {MAX_DEFECT_LINES} — only the first {MAX_DEFECT_LINES} pieces are
-                shown. Split into multiple submissions.
-              </p>
-            ) : null}
-
-            <div className="defectListScroll">
-              <table className="defectListTable">
-                <thead>
-                  <tr>
-                    <th className="defectPcCol">Pc #</th>
-                    <th>Defect type</th>
-                    <th>Photos (max 2)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {defectRows.map((row, i) => (
-                    <tr key={i}>
-                      <td className="defectPcCol mono">{i + 1}</td>
-                      <td>
-                        <select
-                          className="fieldInput"
-                          value={row.defect_reason}
-                          onChange={(e) => setDefectAt(i, { defect_reason: e.target.value })}
-                          required
-                        >
-                          {DEFECT_REASONS.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <DefectPhotoPicker
-                          photos={row.photos}
-                          onChange={(photos) => setDefectAt(i, { photos })}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {form.direction === "inbound" && qtyValid && qtyParsed > MAX_DEFECT_LINES ? (
+          <p className="formHint">
+            Quantity exceeds {MAX_DEFECT_LINES} per submission — split into multiple entries.
+          </p>
         ) : null}
 
         {message ? (

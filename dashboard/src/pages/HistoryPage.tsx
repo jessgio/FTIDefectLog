@@ -3,13 +3,14 @@ import { DEFECT_REASONS, MAX_DEFECT_LINES } from "../defectReasons";
 import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
 import { formatInt } from "../format";
 import { AttachPhotosDialog } from "../components/AttachPhotosDialog";
-import { DefectPhotoPicker } from "../components/DefectPhotoPicker";
+import { DefectGroupList } from "../components/DefectGroupList";
 import { ProductThumb } from "../components/ProductThumb";
 import {
-  defectRowsToLines,
-  recordToDefectRows,
-  resizeDefectRows,
-  type DefectRowState,
+  defectGroupsToLines,
+  recordToDefectGroups,
+  syncDefectGroupsToQuantity,
+  validateDefectGroups,
+  type DefectGroupRowState,
 } from "../defectForm";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { formatPriceField } from "../skuList";
@@ -173,7 +174,7 @@ export function HistoryPage(): React.ReactElement {
                     <td className="num">{formatInt(r.quantity_pcs)}</td>
                     <td>
                       {r.direction === "inbound"
-                        ? r.defect_reason || (r.defect_lines?.length ? "Per-piece defects" : "—")
+                        ? r.defect_reason || (r.defect_lines?.length ? "Defect breakdown" : "—")
                         : r.disposition || "—"}
                     </td>
                     <td>{r.logged_by}</td>
@@ -288,7 +289,9 @@ function EditMovementDialog({
   const [cogsPerUnit, setCogsPerUnit] = React.useState(
     record.cogs_per_unit != null ? String(record.cogs_per_unit) : "",
   );
-  const [defectRows, setDefectRows] = React.useState<DefectRowState[]>(() => recordToDefectRows(record));
+  const [defectGroups, setDefectGroups] = React.useState<DefectGroupRowState[]>(() =>
+    recordToDefectGroups(record),
+  );
   const skuLookup = useSkuLookup(true);
 
   const qty = Number(quantity);
@@ -297,7 +300,7 @@ function EditMovementDialog({
   React.useEffect(() => {
     if (direction !== "inbound" || !qtyValid) return;
     if (qty > MAX_DEFECT_LINES) return;
-    setDefectRows((prev) => resizeDefectRows(prev, qty, defectReason));
+    setDefectGroups((prev) => syncDefectGroupsToQuantity(prev, qty, defectReason));
   }, [direction, quantity, qtyValid, defectReason]);
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
@@ -336,16 +339,12 @@ function EditMovementDialog({
     if (cogsPerUnit.trim() && Number.isFinite(cogs)) payload.cogs_per_unit = cogs;
 
     if (direction === "inbound") {
-      if (defectRows.length !== qty) {
-        onError("Set a defect for each piece.");
+      const defectErr = validateDefectGroups(defectGroups, qty);
+      if (defectErr) {
+        onError(defectErr);
         return;
       }
-      const lines = defectRowsToLines(defectRows);
-      if (lines.some((l) => !l.defect_reason.trim())) {
-        onError("Every piece needs a defect.");
-        return;
-      }
-      payload.defect_lines = lines;
+      payload.defect_lines = defectGroupsToLines(defectGroups);
     } else {
       payload.disposition = disposition;
       if (defectReason.trim()) payload.defect_reason = defectReason.trim();
@@ -533,84 +532,13 @@ function EditMovementDialog({
           </div>
 
           {direction === "inbound" && qtyValid && qty <= MAX_DEFECT_LINES ? (
-            <div className="defectListCard">
-              <div className="defectListHead">
-                <div>
-                  <div className="cardTitle">Defect per piece</div>
-                  <p className="formHint">1–2 photos per piece (optional).</p>
-                </div>
-                <label className="applyAllField">
-                  <span className="fieldLabel">Apply defect to all</span>
-                  <select
-                    className="fieldInput"
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setDefectRows((rows) =>
-                          rows.map((r) => ({ ...r, defect_reason: e.target.value })),
-                        );
-                      }
-                    }}
-                  >
-                    <option value="">Choose…</option>
-                    {DEFECT_REASONS.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="defectListScroll">
-                <table className="defectListTable">
-                  <thead>
-                    <tr>
-                      <th className="defectPcCol">Pc #</th>
-                      <th>Defect type</th>
-                      <th>Photos (max 2)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {defectRows.map((row, i) => (
-                      <tr key={i}>
-                        <td className="defectPcCol mono">{i + 1}</td>
-                        <td>
-                          <select
-                            className="fieldInput"
-                            value={row.defect_reason}
-                            onChange={(e) => {
-                              setDefectRows((rows) => {
-                                const next = [...rows];
-                                next[i] = { ...next[i], defect_reason: e.target.value };
-                                return next;
-                              });
-                            }}
-                          >
-                            {DEFECT_REASONS.map((r) => (
-                              <option key={r} value={r}>
-                                {r}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <DefectPhotoPicker
-                            photos={row.photos}
-                            onChange={(photos) => {
-                              setDefectRows((rows) => {
-                                const next = [...rows];
-                                next[i] = { ...next[i], photos };
-                                return next;
-                              });
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DefectGroupList
+              totalQty={qty}
+              groups={defectGroups}
+              onChange={setDefectGroups}
+              defaultReason={defectReason}
+              hint="1–2 photos per row (optional)."
+            />
           ) : null}
 
           <label className="field fieldWide">

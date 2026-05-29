@@ -173,9 +173,7 @@ export function ProductDetailModal({
           {evidence.length ? (
             evidence.map((g) => <DefectGallery key={g.defect_reason} group={g} />)
           ) : (
-            <p className="hint">
-              No inbound defect photos yet. Add 1–2 photos per piece on Stock entry.
-            </p>
+            <p className="hint">{productDetailCopy.noDefectPhotos}</p>
           )}
         </section>
 

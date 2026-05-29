@@ -1,46 +1,123 @@
-import { DEFECT_REASONS, MAX_DEFECT_LINES } from "./defectReasons";
+import { DEFECT_REASONS } from "./defectReasons";
 import type { DefectLine, MovementRecord } from "./types";
 
-export type DefectRowState = {
+export type DefectGroupRowState = {
   defect_reason: string;
+  quantity: number;
   photos: string[];
 };
 
-export function emptyDefectRow(fill: string): DefectRowState {
-  return { defect_reason: fill, photos: [] };
+export function emptyDefectGroup(fill: string, quantity = 1): DefectGroupRowState {
+  return { defect_reason: fill, quantity, photos: [] };
 }
 
-export function resizeDefectRows(
-  prev: DefectRowState[],
+export function assignedDefectQuantity(groups: DefectGroupRowState[]): number {
+  return groups.reduce((sum, g) => sum + (Number.isFinite(g.quantity) ? g.quantity : 0), 0);
+}
+
+/** Keep groups when possible; reset to one row when qty or structure no longer fits. */
+export function syncDefectGroupsToQuantity(
+  prev: DefectGroupRowState[],
   qty: number,
   fill: string,
-): DefectRowState[] {
+): DefectGroupRowState[] {
   if (qty <= 0) return [];
-  if (qty > MAX_DEFECT_LINES) return prev.slice(0, MAX_DEFECT_LINES);
-  const next = prev.slice(0, qty);
-  while (next.length < qty) {
-    next.push(emptyDefectRow(fill));
+  if (!prev.length) return [emptyDefectGroup(fill, qty)];
+  if (prev.length === 1) {
+    return [{ ...prev[0], quantity: qty }];
   }
-  return next;
+  if (assignedDefectQuantity(prev) === qty) return prev;
+  return [emptyDefectGroup(fill, qty)];
 }
 
-export function recordToDefectRows(record: MovementRecord): DefectRowState[] {
+export function linesToDefectGroups(lines: DefectLine[]): DefectGroupRowState[] {
+  const order: string[] = [];
+  const groups = new Map<string, DefectGroupRowState>();
+
+  for (const line of lines) {
+    const reason = line.defect_reason.trim() || DEFECT_REASONS[0];
+    let group = groups.get(reason);
+    if (!group) {
+      group = { defect_reason: reason, quantity: 0, photos: [] };
+      groups.set(reason, group);
+      order.push(reason);
+    }
+    group.quantity += 1;
+    for (const url of line.photo_urls ?? []) {
+      const trimmed = url.trim();
+      if (trimmed && group.photos.length < 2 && !group.photos.includes(trimmed)) {
+        group.photos.push(trimmed);
+      }
+    }
+  }
+
+  return order.map((reason) => groups.get(reason)!);
+}
+
+export function recordToDefectGroups(record: MovementRecord): DefectGroupRowState[] {
   if (record.defect_lines?.length) {
-    return record.defect_lines.map((l) => ({
-      defect_reason: l.defect_reason,
-      photos: [...(l.photo_urls ?? [])],
-    }));
+    return linesToDefectGroups(record.defect_lines);
   }
   const qty = record.quantity_pcs;
   const fill =
     record.defect_reason?.split(";")[0]?.replace(/\s*\(\d+\)\s*$/, "").trim() || DEFECT_REASONS[0];
-  return Array.from({ length: qty }, () => emptyDefectRow(fill));
+  return qty > 0 ? [emptyDefectGroup(fill, qty)] : [];
 }
 
-export function defectRowsToLines(rows: DefectRowState[]): DefectLine[] {
-  return rows.map((row, i) => ({
-    piece: i + 1,
-    defect_reason: row.defect_reason.trim(),
-    ...(row.photos.length ? { photo_urls: row.photos.slice(0, 2) } : {}),
-  }));
+/** Expand grouped rows into one backend line per physical piece. */
+export function defectGroupsToLines(groups: DefectGroupRowState[]): DefectLine[] {
+  const merged: DefectGroupRowState[] = [];
+
+  for (const row of groups) {
+    const reason = row.defect_reason.trim();
+    const qty = Math.max(0, Math.floor(row.quantity));
+    if (!reason || qty <= 0) continue;
+
+    const existing = merged.find((g) => g.defect_reason === reason);
+    if (existing) {
+      existing.quantity += qty;
+      for (const url of row.photos) {
+        if (existing.photos.length < 2 && !existing.photos.includes(url)) {
+          existing.photos.push(url);
+        }
+      }
+    } else {
+      merged.push({
+        defect_reason: reason,
+        quantity: qty,
+        photos: [...row.photos.slice(0, 2)],
+      });
+    }
+  }
+
+  const lines: DefectLine[] = [];
+  let piece = 1;
+  for (const group of merged) {
+    for (let i = 0; i < group.quantity; i++) {
+      lines.push({
+        piece: piece++,
+        defect_reason: group.defect_reason,
+        ...(i === 0 && group.photos.length ? { photo_urls: group.photos.slice(0, 2) } : {}),
+      });
+    }
+  }
+  return lines;
+}
+
+export function validateDefectGroups(
+  groups: DefectGroupRowState[],
+  totalQty: number,
+): string | null {
+  if (!groups.length) return "Add at least one defect type.";
+  for (const g of groups) {
+    if (!g.defect_reason.trim()) return "Every row needs a defect type.";
+    if (!Number.isFinite(g.quantity) || g.quantity <= 0) {
+      return "Each row needs a positive quantity.";
+    }
+  }
+  const assigned = assignedDefectQuantity(groups);
+  if (assigned !== totalQty) {
+    return `Quantities must add up to ${totalQty} pcs (currently ${assigned}).`;
+  }
+  return null;
 }
