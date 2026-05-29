@@ -8,6 +8,7 @@ import {
   type DefectEvidenceGroup,
 } from "../productDefects";
 import { ResolvedImage } from "./ResolvedImage";
+import { productDetailCopy } from "../copy/productDetail";
 import type { MovementRecord, RejectRow } from "../types";
 import { ProductThumb } from "./ProductThumb";
 
@@ -160,7 +161,7 @@ export function ProductDetailModal({
               </table>
             </div>
           ) : (
-            <p className="hint">No lots in the published inventory for this product.</p>
+            <p className="hint">{productDetailCopy.noLots}</p>
           )}
         </section>
 

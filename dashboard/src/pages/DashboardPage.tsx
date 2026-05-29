@@ -11,6 +11,7 @@ import { useSkuLookup } from "../hooks/useSkuLookup";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { fetchInventoryLots } from "../inventory";
 import { listMovements } from "../movements";
+import { dashboardCopy } from "../copy/dashboard";
 import type { MovementRecord, RejectRow } from "../types";
 
 type TableView = "lot" | "product" | "sku";
@@ -235,9 +236,7 @@ export function DashboardPage(): React.ReactElement {
       <header className="header">
         <div>
           <div className="title">FTI Defective Stock</div>
-          <div className="subtitle">
-            Read-only dashboard backed by a published Google Sheet (CSV)
-          </div>
+          <div className="subtitle">{dashboardCopy.subtitle}</div>
         </div>
         <div className="right">
           <input
@@ -254,9 +253,7 @@ export function DashboardPage(): React.ReactElement {
         <div className="card error">
           <div className="cardTitle">Could not load inventory</div>
           <div className="mono">{error}</div>
-          <div className="hint">
-            Check Supabase connection and that you are signed in with an allowed Google account.
-          </div>
+          <div className="hint">{dashboardCopy.loadErrorHint}</div>
         </div>
       ) : null}
 
@@ -346,7 +343,7 @@ export function DashboardPage(): React.ReactElement {
               <p className="hint">
                 No product categories in the catalog yet. Add{" "}
                 <span className="mono">product_category</span> on rows in the{" "}
-                <span className="mono">products</span> table (or run the Google migration script).
+                <span className="mono">products</span> table.
               </p>
             ) : categoryRowsPcs.length ? (
               <div className="categoryMetricsGrid">
@@ -363,7 +360,7 @@ export function DashboardPage(): React.ReactElement {
                   total={totalCategoryCogs}
                   formatValue={formatCurrencyIdr}
                   ariaLabel="Defective stock COGS value by product category"
-                  emptyHint="No COGS on filtered lots (fill cogs_per_unit in the sheet)."
+                  emptyHint={dashboardCopy.cogsEmptyHint}
                 />
               </div>
             ) : (
@@ -708,10 +705,7 @@ export function DashboardPage(): React.ReactElement {
       ) : null}
 
       <footer className="footer">
-        <div>
-          Tip: keep the Google Sheet as the single source of truth; warehouse
-          can update reasons / SKU / COGS, and the dashboard refreshes on reload.
-        </div>
+        <div>{dashboardCopy.footer}</div>
       </footer>
     </>
   );
