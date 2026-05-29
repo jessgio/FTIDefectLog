@@ -8,9 +8,8 @@ import {
   type DefectRowState,
 } from "../defectForm";
 import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
-import { ProductThumb } from "../components/ProductThumb";
-import { useSkuLookup } from "../hooks/useSkuLookup";
-import { formatPriceField } from "../skuList";
+import { ProductPicker } from "../components/ProductPicker";
+import { formatPriceField, type SkuEntry } from "../skuList";
 import { fetchRejectRows } from "../sheet";
 import { getInventorySheetName, getMovementsScriptUrl, submitMovement } from "../movements";
 import type { MovementDirection, MovementPayload, RejectRow } from "../types";
@@ -63,7 +62,7 @@ function lotKey(r: RejectRow): string {
 export function MovementsPage(): React.ReactElement {
   const scriptUrl = React.useMemo(() => getMovementsScriptUrl(), []);
   const inventorySheetName = React.useMemo(() => getInventorySheetName(), []);
-  const skuLookup = useSkuLookup(Boolean(scriptUrl));
+  const skuLookup = useSkuLookup(true);
   const [stock, setStock] = React.useState<RejectRow[]>([]);
   const [stockError, setStockError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<FormState>(() => emptyForm());
@@ -80,25 +79,26 @@ export function MovementsPage(): React.ReactElement {
       });
   }, []);
 
-  const products = React.useMemo(() => {
+  const stockProductNames = React.useMemo(() => {
     const names = new Set<string>();
-    for (const e of skuLookup.entries) names.add(e.product_name);
     for (const r of stock) names.add(r.product_name);
     return [...names].sort((a, b) => a.localeCompare(b));
-  }, [stock, skuLookup.entries]);
+  }, [stock]);
 
   function onProductNameChange(name: string): void {
-    const entry = skuLookup.lookupEntry(name);
     patch({
       product_name: name,
       lot_key: "",
-      ...(entry
-        ? {
-            sku: entry.sku,
-            rsp_per_unit: formatPriceField(entry.rsp_per_unit),
-            cogs_per_unit: formatPriceField(entry.cogs_per_unit),
-          }
-        : {}),
+    });
+  }
+
+  function onProductSelectEntry(entry: SkuEntry): void {
+    patch({
+      product_name: entry.product_name,
+      lot_key: "",
+      sku: entry.sku,
+      rsp_per_unit: formatPriceField(entry.rsp_per_unit),
+      cogs_per_unit: formatPriceField(entry.cogs_per_unit),
     });
   }
 
@@ -348,37 +348,19 @@ export function MovementsPage(): React.ReactElement {
 
           <label className="field fieldWide">
             <span className="fieldLabel">Product name</span>
-            <div className="productFieldRow">
-              {form.product_name.trim() ? (
-                <ProductThumb
-                  productName={form.product_name}
-                  imageUrl={skuLookup.lookupImage(form.product_name, form.sku)}
-                  size="md"
-                />
-              ) : null}
-              <input
-                className="fieldInput"
-                list="product-list"
-                value={form.product_name}
-                onChange={(e) => onProductNameChange(e.target.value)}
-                required
-              />
-            </div>
-            <datalist id="product-list">
-              {products.map((p) => {
-                const sku = skuLookup.lookup(p);
-                return (
-                  <option key={p} value={p}>
-                    {sku ? `${p} (${sku})` : p}
-                  </option>
-                );
-              })}
-            </datalist>
-            {skuLookup.loading ? (
-              <span className="fieldHint">Loading SKU list…</span>
-            ) : skuLookup.entries.length ? (
-              <span className="fieldHint">SKU auto-fills from SKUList tab when product matches.</span>
-            ) : null}
+            <ProductPicker
+              value={form.product_name}
+              sku={form.sku}
+              entries={skuLookup.entries}
+              stockNames={stockProductNames}
+              loading={skuLookup.loading}
+              barcodeCount={skuLookup.barcodeCount}
+              csvAttempts={skuLookup.csvAttempts}
+              imageUrl={skuLookup.lookupImage(form.product_name, form.sku)}
+              onChange={onProductNameChange}
+              onSelectEntry={onProductSelectEntry}
+              required
+            />
           </label>
 
           <label className="field">

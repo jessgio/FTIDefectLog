@@ -1,4 +1,5 @@
 import Papa from "papaparse";
+import { countEntriesWithBarcode } from "./barcode";
 import type { SkuEntry } from "./skuList";
 import { toCsvUrlFromAnyGoogleSheetsUrl } from "./sheet";
 
@@ -36,6 +37,27 @@ function pickCategoryColumn(row: Record<string, string>): string {
   for (const key of Object.keys(row)) {
     const h = normalizeHeader(key);
     if (h.includes("categ") || h.includes("kategori")) {
+      const v = row[key]?.trim();
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
+function pickBarcodeColumn(row: Record<string, string>): string {
+  const exact = pickColumn(row, [
+    "barcode",
+    "bar code",
+    "ean",
+    "upc",
+    "gtin",
+    "product barcode",
+  ]);
+  if (exact) return exact;
+
+  for (const key of Object.keys(row)) {
+    const h = normalizeHeader(key);
+    if (h.includes("barcode") || h === "ean" || h === "upc" || h === "gtin") {
       const v = row[key]?.trim();
       if (v) return v;
     }
@@ -114,7 +136,9 @@ export function getSkuListCsvUrl(): string | null {
 }
 
 async function fetchCsvText(url: string): Promise<string> {
-  const res = await fetch(url, { cache: "no-store", redirect: "follow" });
+  const cacheBust = url.includes("?") ? "&" : "?";
+  const fetchUrl = `${url}${cacheBust}_=${Date.now()}`;
+  const res = await fetch(fetchUrl, { cache: "no-store", redirect: "follow" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
   const trimmed = text.trimStart();
@@ -140,6 +164,9 @@ export function parseSkuListFromCsvText(csv: string): SkuEntry[] {
     const category = pickCategoryColumn(row);
     if (category) entry.product_category = category;
 
+    const barcode = pickBarcodeColumn(row);
+    if (barcode) entry.barcode = barcode;
+
     const image_url = pickColumn(row, [
       "image_url",
       "image url",
@@ -160,7 +187,16 @@ export type SkuCsvFetchAttempt = {
   detail: string;
   rows: number;
   withCategory: number;
+  withBarcode: number;
 };
+
+function csvDataScore(entries: SkuEntry[]): number {
+  return (
+    countEntriesWithBarcode(entries) * 1000 +
+    countEntriesWithCategory(entries) * 100 +
+    entries.length
+  );
+}
 
 async function getSkuListCsvUrlCandidatesAsync(): Promise<string[]> {
   const runtime = await loadRuntimeSkuListCsvUrl();
@@ -187,6 +223,7 @@ export async function fetchSkuListFromPublishedCsvWithDiagnostics(): Promise<{
             "No CSV URL configured. Set VITE_SKU_LIST_CSV_URL to your Publish-to-web link, or VITE_SKU_LIST_GID on Vercel.",
           rows: 0,
           withCategory: 0,
+          withBarcode: 0,
         },
       ],
     };
@@ -198,21 +235,23 @@ export async function fetchSkuListFromPublishedCsvWithDiagnostics(): Promise<{
       const csv = await fetchCsvText(url);
       const entries = parseSkuListFromCsvText(csv);
       const withCategory = countEntriesWithCategory(entries);
+      const withBarcode = countEntriesWithBarcode(entries);
       attempts.push({
         url,
         ok: entries.length > 0,
         detail:
           entries.length > 0
-            ? withCategory > 0
-              ? `OK — ${withCategory} rows with category`
-              : `Loaded ${entries.length} SKUs but no category column in headers`
+            ? withBarcode > 0
+              ? `OK — ${withBarcode} barcodes, ${withCategory} categories`
+              : withCategory > 0
+                ? `OK — ${withCategory} categories (no barcode column in headers)`
+                : `Loaded ${entries.length} SKUs (no category/barcode columns found)`
             : "CSV parsed but no product/SKU rows",
         rows: entries.length,
         withCategory,
+        withBarcode,
       });
-      if (withCategory > best.filter((e) => (e.product_category ?? "").trim()).length) {
-        best = entries;
-      } else if (!best.length && entries.length) {
+      if (csvDataScore(entries) > csvDataScore(best)) {
         best = entries;
       }
     } catch (e: unknown) {
@@ -222,6 +261,7 @@ export async function fetchSkuListFromPublishedCsvWithDiagnostics(): Promise<{
         detail: e instanceof Error ? e.message : String(e),
         rows: 0,
         withCategory: 0,
+        withBarcode: 0,
       });
     }
   }
@@ -248,27 +288,46 @@ export async function fetchSkuListFromPublishedCsv(): Promise<SkuEntry[]> {
   return entries;
 }
 
-/** Prefer script list for images/prices; fill categories from CSV when the API omits them. */
-export function mergeSkuEntries(primary: SkuEntry[], categorySource: SkuEntry[]): SkuEntry[] {
-  if (!categorySource.length) return primary;
-  if (!primary.length) return categorySource;
+/** Prefer API list for images/prices; overlay category + barcode from published CSV. */
+export function mergeSkuEntries(primary: SkuEntry[], csvSource: SkuEntry[]): SkuEntry[] {
+  if (!csvSource.length) return primary;
+  if (!primary.length) return csvSource;
 
-  const catBySku = new Map<string, string>();
-  const catByProduct = new Map<string, string>();
-  for (const e of categorySource) {
-    const cat = (e.product_category ?? "").trim();
-    if (!cat) continue;
-    catBySku.set(e.sku.trim().toLowerCase(), cat);
-    catByProduct.set(e.product_name.trim().toLowerCase(), cat);
+  const csvBySku = new Map<string, SkuEntry>();
+  const csvByProduct = new Map<string, SkuEntry>();
+  for (const e of csvSource) {
+    const skuKey = e.sku.trim().toLowerCase();
+    const nameKey = e.product_name.trim().toLowerCase();
+    if (skuKey) csvBySku.set(skuKey, e);
+    if (nameKey) csvByProduct.set(nameKey, e);
   }
 
-  return primary.map((e) => {
-    if ((e.product_category ?? "").trim()) return e;
-    const fromSku = catBySku.get(e.sku.trim().toLowerCase());
-    const fromName = catByProduct.get(e.product_name.trim().toLowerCase());
-    const product_category = fromSku ?? fromName;
-    return product_category ? { ...e, product_category } : e;
+  const overlay = (base: SkuEntry, csv: SkuEntry): SkuEntry => ({
+    ...base,
+    product_category: (base.product_category ?? "").trim() || csv.product_category,
+    barcode: (base.barcode ?? "").trim() || csv.barcode,
+    image_url: (base.image_url ?? "").trim() || csv.image_url,
+    rsp_per_unit: base.rsp_per_unit ?? csv.rsp_per_unit,
+    cogs_per_unit: base.cogs_per_unit ?? csv.cogs_per_unit,
   });
+
+  const merged = primary.map((e) => {
+    const csv =
+      csvBySku.get(e.sku.trim().toLowerCase()) ??
+      csvByProduct.get(e.product_name.trim().toLowerCase());
+    return csv ? overlay(e, csv) : e;
+  });
+
+  const seen = new Set(merged.map((e) => e.sku.trim().toLowerCase()));
+  for (const e of csvSource) {
+    const skuKey = e.sku.trim().toLowerCase();
+    if (skuKey && !seen.has(skuKey)) {
+      merged.push(e);
+      seen.add(skuKey);
+    }
+  }
+
+  return merged;
 }
 
 export function countEntriesWithCategory(entries: SkuEntry[]): number {

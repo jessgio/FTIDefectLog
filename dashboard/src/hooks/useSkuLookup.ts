@@ -1,4 +1,5 @@
 import React from "react";
+import { countEntriesWithBarcode } from "../barcode";
 import { fetchSkuList } from "../movements";
 import {
   countEntriesWithCategory,
@@ -26,6 +27,7 @@ export function useSkuLookup(enabled: boolean): {
   lookupImage: (productName: string, sku?: string) => string | undefined;
   imageCount: number;
   categoryCount: number;
+  barcodeCount: number;
   categorySource: "api" | "csv" | "none";
   loadError: string | null;
   csvAttempts: SkuCsvFetchAttempt[];
@@ -45,33 +47,40 @@ export function useSkuLookup(enabled: boolean): {
     }
     let cancelled = false;
     (async () => {
-      let list: SkuEntry[] = [];
       let err: string | null = null;
-      try {
-        list = await fetchSkuList();
-      } catch (e: unknown) {
-        err = e instanceof Error ? e.message : String(e);
-      }
 
-      const hadApiCategories = skuListHasCategories(list);
-      let source: "api" | "csv" | "none" = hadApiCategories ? "api" : "none";
-
+      // Published CSV first (barcode + category work without Apps Script redeploy)
       const { entries: fromCsv, attempts } = await fetchSkuListFromPublishedCsvWithDiagnostics();
       if (!cancelled) setCsvAttempts(attempts);
 
-      if (fromCsv.length) {
-        list = mergeSkuEntries(list, fromCsv);
-        if (skuListHasCategories(list) && !hadApiCategories) source = "csv";
+      let list: SkuEntry[] = fromCsv;
+      let hadApiCategories = false;
+
+      try {
+        const apiList = await fetchSkuList();
+        if (apiList.length) {
+          list = fromCsv.length ? mergeSkuEntries(apiList, fromCsv) : apiList;
+          hadApiCategories = skuListHasCategories(apiList);
+        }
+      } catch (e: unknown) {
+        if (!fromCsv.length) {
+          err = e instanceof Error ? e.message : String(e);
+        }
       }
 
-      if (!skuListHasCategories(list) && !err) {
+      let source: "api" | "csv" | "none" = "none";
+      if (skuListHasCategories(list)) {
+        source = hadApiCategories ? "api" : "csv";
+      }
+
+      if (!skuListHasCategories(list) && !countEntriesWithBarcode(list) && !err) {
         const failed = attempts.find((a) => !a.ok);
-        const noCat = attempts.find((a) => a.ok && a.withCategory === 0);
+        const noData = attempts.find((a) => a.ok && a.withBarcode === 0 && a.withCategory === 0);
         if (failed) err = failed.detail;
-        else if (noCat) err = noCat.detail;
+        else if (noData) err = noData.detail;
         else if (!attempts.length) {
           err =
-            "Set VITE_SKU_LIST_CSV_URL on Vercel to your SKUList Publish-to-web CSV link, then redeploy.";
+            "Set VITE_SKU_LIST_CSV_URL or dashboard/public/sku-list-config.json to your SKUList Publish-to-web CSV link, then redeploy.";
         }
       }
 
@@ -113,6 +122,7 @@ export function useSkuLookup(enabled: boolean): {
   );
 
   const categoryCount = React.useMemo(() => countEntriesWithCategory(entries), [entries]);
+  const barcodeCount = React.useMemo(() => countEntriesWithBarcode(entries), [entries]);
 
   const applyCategoryCsv = React.useCallback((merged: SkuEntry[]) => {
     setEntries(merged);
@@ -130,6 +140,7 @@ export function useSkuLookup(enabled: boolean): {
     lookupImage: lookupImageFn,
     imageCount,
     categoryCount,
+    barcodeCount,
     categorySource,
     loadError,
     csvAttempts,

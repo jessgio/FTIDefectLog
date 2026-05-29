@@ -6,6 +6,8 @@ export type SkuEntry = {
   sku: string;
   /** From SKUList tab (aliases: category, product category) */
   product_category?: string;
+  /** Retail / EAN / UPC barcode(s) mapped to this SKU — comma-separated if multiple */
+  barcode?: string;
   image_url?: string;
   rsp_per_unit?: number;
   cogs_per_unit?: number;

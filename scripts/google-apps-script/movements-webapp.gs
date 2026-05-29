@@ -7,7 +7,7 @@ const MOVEMENTS_SHEET_NAME = "Movements";
 const SKU_LIST_SHEET_NAME = "SKUList";
 const FALLBACK_INVENTORY_SHEET_NAME = "Inventory";
 /** Bump when SKU list API shape changes (dashboard checks this). */
-const SKU_LIST_API_VERSION = 3;
+const SKU_LIST_API_VERSION = 4;
 
 const MOVEMENT_HEADERS = [
   "movement_id",
@@ -157,11 +157,31 @@ function findCategoryColumnIndex_(headers) {
   return -1;
 }
 
+function findBarcodeColumnIndex_(headers) {
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    if (!h) continue;
+    if (h === "barcode" || h === "bar code") return i;
+    if (h.indexOf("barcode") >= 0) return i;
+    if (h === "ean" || h === "upc" || h === "gtin") return i;
+  }
+  return -1;
+}
+
+function readBarcodeCell_(sheet, rowIndex, colIndex, rawValue) {
+  let barcode = String(rawValue || "").trim();
+  if (!barcode && colIndex >= 0) {
+    barcode = String(sheet.getRange(rowIndex + 1, colIndex + 1).getDisplayValue() || "").trim();
+  }
+  return barcode;
+}
+
 function loadSkuMap_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SKU_LIST_SHEET_NAME);
   const byProduct = {};
   const bySku = {};
+  const byBarcode = {};
   const list = [];
   const meta = {
     sheet_name: SKU_LIST_SHEET_NAME,
@@ -172,12 +192,15 @@ function loadSkuMap_() {
     category_column_index: -1,
     category_column_header: "",
     rows_with_category: 0,
+    barcode_column_index: -1,
+    barcode_column_header: "",
+    rows_with_barcode: 0,
   };
 
-  if (!sheet) return { byProduct: byProduct, bySku: bySku, list: list, meta: meta };
+  if (!sheet) return { byProduct: byProduct, bySku: bySku, byBarcode: byBarcode, list: list, meta: meta };
 
   const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return { byProduct: byProduct, bySku: bySku, list: list, meta: meta };
+  if (data.length < 2) return { byProduct: byProduct, bySku: bySku, byBarcode: byBarcode, list: list, meta: meta };
 
   const headerRow = findHeaderRowIndex_(data);
   const headers = data[headerRow].map(normalizeSheetHeader_);
@@ -210,6 +233,10 @@ function loadSkuMap_() {
   meta.category_column_index = iCategory;
   if (iCategory >= 0) meta.category_column_header = String(data[headerRow][iCategory] || "");
 
+  const iBarcode = findBarcodeColumnIndex_(headers);
+  meta.barcode_column_index = iBarcode;
+  if (iBarcode >= 0) meta.barcode_column_header = String(data[headerRow][iBarcode] || "");
+
   if (iProduct < 0 || iSku < 0) {
     throw new Error('SKUList tab must have "product_name" (or "product") and "sku" columns.');
   }
@@ -233,8 +260,12 @@ function loadSkuMap_() {
     }
     if (category) meta.rows_with_category += 1;
 
+    const barcode = readBarcodeCell_(sheet, r, iBarcode, iBarcode >= 0 ? data[r][iBarcode] : "");
+    if (barcode) meta.rows_with_barcode += 1;
+
     const catalog = { sku: sku, product_name: product };
     if (category) catalog.product_category = category;
+    if (barcode) catalog.barcode = barcode;
     if (imageUrl) catalog.image_url = imageUrl;
     if (rsp != null) catalog.rsp_per_unit = rsp;
     if (cogs != null) catalog.cogs_per_unit = cogs;
@@ -242,16 +273,24 @@ function loadSkuMap_() {
     const key = normalizeProductKey_(product);
     byProduct[key] = catalog;
     bySku[sku.toLowerCase()] = catalog;
+    if (barcode) {
+      const codes = String(barcode).split(/[,;|\n]+/);
+      for (let c = 0; c < codes.length; c++) {
+        const code = String(codes[c] || "").trim().toLowerCase();
+        if (code && !byBarcode[code]) byBarcode[code] = catalog;
+      }
+    }
 
     const entry = { product_name: product, sku: sku };
     if (category) entry.product_category = category;
+    if (barcode) entry.barcode = barcode;
     if (imageUrl) entry.image_url = imageUrl;
     if (rsp != null) entry.rsp_per_unit = rsp;
     if (cogs != null) entry.cogs_per_unit = cogs;
     list.push(entry);
   }
 
-  return { byProduct: byProduct, bySku: bySku, list: list, meta: meta };
+  return { byProduct: byProduct, bySku: bySku, byBarcode: byBarcode, list: list, meta: meta };
 }
 
 function parseSheetPrice_(value) {

@@ -165,7 +165,14 @@ export function CategorySetupPanel({
           <summary>CSV load attempts (automatic)</summary>
           <ul className="csvAttemptList">
             {csvAttempts.map((a, i) => (
-              <li key={i} className={a.ok && a.withCategory > 0 ? "csvAttemptOk" : "csvAttemptFail"}>
+              <li
+                key={i}
+                className={
+                  a.ok && (a.withCategory > 0 || a.withBarcode > 0)
+                    ? "csvAttemptOk"
+                    : "csvAttemptFail"
+                }
+              >
                 <span className="mono csvAttemptUrl">{a.url}</span>
                 <span>{a.detail}</span>
               </li>

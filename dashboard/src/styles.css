@@ -729,6 +729,149 @@ section.card + section.card {
   font-size: 11px;
   color: var(--faint);
   margin-top: 4px;
+  display: block;
+}
+
+/* Product picker (typeahead + barcode) */
+.productPicker {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.productPickerRow {
+  width: 100%;
+}
+
+.productPickerInputWrap {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.productPickerInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.productPickerScanBtn {
+  appearance: none;
+  flex-shrink: 0;
+  border: 1px solid var(--accent-ring);
+  border-radius: var(--r-md);
+  padding: 0 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s var(--ease), border-color 0.12s var(--ease);
+}
+.productPickerScanBtn:hover {
+  background: var(--surface-3);
+  border-color: var(--accent);
+}
+
+.productPickerDropdown {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.productPickerOption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.1s var(--ease);
+}
+.productPickerOption:hover,
+.productPickerOption.active {
+  background: var(--surface-3);
+}
+
+.productPickerOptionName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.productPickerOptionSku {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.barcodeScannerCard {
+  width: min(480px, 100%);
+}
+
+.barcodeScannerHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.barcodeScannerHint {
+  margin: 6px 0 0;
+}
+
+.barcodeScannerClose {
+  flex-shrink: 0;
+}
+
+.barcodeScannerViewportWrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-soft);
+  background: #0f172a;
+  min-height: 280px;
+}
+
+.barcodeScannerViewport {
+  width: 100%;
+}
+
+.barcodeScannerViewport video {
+  border-radius: var(--r-md);
+}
+
+.barcodeScannerLoading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.72);
 }
 
 .formBanner {
@@ -1412,6 +1555,19 @@ section.card + section.card {
   .productFieldRow {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .productPickerRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .productPickerInputWrap {
+    width: 100%;
+  }
+
+  .productPickerScanBtn {
+    padding: 10px 14px;
   }
 
   .productFieldRow .fieldInput {

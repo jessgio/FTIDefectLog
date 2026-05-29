@@ -124,12 +124,13 @@ Add a worksheet tab named **`SKUList`** with headers:
 
 - `product_name` (or `product`)
 - `sku`
+- `barcode` (optional — EAN/UPC on the product label; used by **Stock entry → Scan**. Maps to SKU. Multiple codes: comma-separated. Aliases: `ean`, `upc`, `gtin`)
 - `product_category` (optional — used on the dashboard “Defects by product category” chart; aliases: `category`, `product category`)
 - `image_url` (optional — HTTPS link to a product photo; aliases: `image`, `product_image`, `photo`)
 - `rsp` (optional — retail price per unit; aliases: `rsp_per_unit`, `retail price`)
 - `cogs` (optional — cost per unit; aliases: `cogs_per_unit`, `cost`)
 
-Stock entry and all inventory writes use this tab to **auto-fill SKU**, **RSP**, and **COGS** from product name (and product name from SKU when only SKU is entered). The Apps Script also applies the mapping on the server if the form omits those fields.
+Stock entry and all inventory writes use this tab to **auto-fill SKU**, **RSP**, and **COGS** from product name. **Barcode scan** in Stock entry looks up the scanned code in the **`barcode`** column and fills product + SKU. The Apps Script also applies the mapping on the server if the form omits those fields.
 
 **Product images:** add an `image_url` per row in **SKUList** (paste the full Google Drive **share link** as plain text or a hyperlink — not only the word “View”). The dashboard shows a thumbnail in the first column. For **Google Drive**:
 
