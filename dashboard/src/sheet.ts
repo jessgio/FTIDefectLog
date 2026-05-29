@@ -2,16 +2,16 @@ import Papa from "papaparse";
 import { normalizeExpiryValue } from "./expiry";
 import type { RejectRow } from "./types";
 
-function toCsvUrlFromAnyGoogleSheetsUrl(input: string): string {
+export function toCsvUrlFromAnyGoogleSheetsUrl(input: string): string {
   const s = input.trim();
 
-  // Already looks like a CSV endpoint
-  if (s.includes("tqx=out:csv") || s.includes("output=csv")) return s;
+  // Publish-to-web links (incl. /d/e/2PACX-…/pub?output=csv) — use as-is
+  if (s.includes("output=csv") || s.includes("tqx=out:csv")) return s;
 
   // Common "edit" links:
   // https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid={GID}
   // https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit?gid={GID}
-  const m = s.match(/spreadsheets\/d\/([^/]+)\//i);
+  const m = s.match(/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/i);
   const sheetId = m?.[1];
   let gid: string | null = null;
 
@@ -97,6 +97,8 @@ export async function fetchRejectRows(): Promise<RejectRow[]> {
 
         product_name,
         sku: r.sku?.trim() || undefined,
+        product_category:
+          (r.product_category ?? r.category ?? r["product category"])?.trim() || undefined,
         image_url: (r.image_url ?? r.product_image ?? r.image)?.trim() || undefined,
         defect_reason: r.defect_reason?.trim() || undefined,
         batch_code,

@@ -4,6 +4,7 @@ import { AggregateTable } from "../components/AggregateTable";
 import { compareExpiryAsc, formatExpiryDisplay } from "../expiry";
 import { formatCurrencyIdr, formatInt, valueOrDash } from "../format";
 import { computeMetrics } from "../metrics";
+import { CategorySetupPanel } from "../components/CategorySetupPanel";
 import { computePcsByCategory, skuListHasCategories } from "../skuList";
 import { ProductThumb } from "../components/ProductThumb";
 import { useSkuLookup } from "../hooks/useSkuLookup";
@@ -88,7 +89,7 @@ export function DashboardPage(): React.ReactElement {
   const [filters, setFilters] = React.useState<Partial<Record<SortKey, string>>>({});
   const [tableView, setTableView] = React.useState<TableView>("lot");
   const scriptUrl = React.useMemo(() => getMovementsScriptUrl(), []);
-  const skuLookup = useSkuLookup(Boolean(scriptUrl));
+  const skuLookup = useSkuLookup(true);
   const [movements, setMovements] = React.useState<MovementRecord[]>([]);
   const [detailProduct, setDetailProduct] = React.useState<string | null>(null);
 
@@ -337,21 +338,15 @@ export function DashboardPage(): React.ReactElement {
 
           <section className="card">
             <div className="cardTitle">Defects by product category (pcs)</div>
-            {!scriptUrl ? (
-              <p className="hint">
-                Configure <span className="mono">VITE_MOVEMENTS_SCRIPT_URL</span> to load categories
-                from the SKUList tab.
-              </p>
-            ) : skuLookup.loading ? (
+            {skuLookup.loading ? (
               <p className="hint">Loading SKUList categories…</p>
-            ) : skuLookup.loadError ? (
-              <p className="hint warnHint">SKUList unavailable: {skuLookup.loadError}</p>
             ) : !skuListHasCategories(skuLookup.entries) ? (
-              <p className="hint">
-                Add a <span className="mono">product_category</span> column on the SKUList tab
-                (aliases: <span className="mono">category</span>,{" "}
-                <span className="mono">product category</span>), then redeploy Apps Script.
-              </p>
+              <CategorySetupPanel
+                scriptUrl={scriptUrl}
+                entries={skuLookup.entries}
+                csvAttempts={skuLookup.csvAttempts}
+                onEntriesUpdated={skuLookup.applyCategoryCsv}
+              />
             ) : categoryRows.length ? (
               <div className="barWrap" role="img" aria-label="Defective stock by product category">
                 {categoryRows.map(([category, pcs]) => {
@@ -374,8 +369,14 @@ export function DashboardPage(): React.ReactElement {
             )}
             {skuListHasCategories(skuLookup.entries) && categoryRows.length > 0 ? (
               <div className="hint">
-                Grouped via SKUList · matches product name or SKU · unmapped lots show as
-                Uncategorized
+                Categories from SKUList
+                {skuLookup.categorySource === "csv"
+                  ? " (published CSV — redeploy Apps Script to use the API instead)"
+                  : skuLookup.categorySource === "api"
+                    ? ` (${skuLookup.categoryCount} SKUs mapped)`
+                    : ""}
+                {" · "}
+                unmapped lots show as Uncategorized
               </div>
             ) : null}
           </section>

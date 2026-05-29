@@ -55,7 +55,8 @@ export function computePcsByCategory(rows: RejectRow[], entries: SkuEntry[]): Re
   const maps = buildCategoryMaps(entries);
   const out: Record<string, number> = {};
   for (const r of rows) {
-    const cat = resolveProductCategory(entries, maps, r.product_name, r.sku);
+    const fromRow = (r.product_category ?? "").trim();
+    const cat = fromRow || resolveProductCategory(entries, maps, r.product_name, r.sku);
     out[cat] = (out[cat] ?? 0) + (r.quantity_pcs || 0);
   }
   return out;

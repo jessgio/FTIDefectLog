@@ -1252,6 +1252,65 @@ section.card + section.card {
   }
 }
 
+.categorySetup {
+  margin-top: 10px;
+}
+.categorySetupSteps {
+  margin: 8px 0 14px;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.categorySetupSteps li {
+  margin-bottom: 6px;
+}
+.categorySetupRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+.categorySetupRow .fieldInput {
+  flex: 1;
+  min-width: min(100%,  280px);
+}
+.categorySetupDetails {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.csvAttemptList {
+  margin: 8px 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+.csvAttemptList li {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+}
+.csvAttemptOk {
+  background: var(--success-bg);
+}
+.csvAttemptFail {
+  background: var(--error-bg);
+}
+.csvAttemptUrl {
+  display: block;
+  word-break: break-all;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+@media (max-width: 640px) {
+  .categorySetupRow {
+    flex-direction: column;
+  }
+  .categorySetupRow .primaryBtn {
+    width: 100%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;

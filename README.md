@@ -89,12 +89,25 @@ The dashboard reads whichever worksheet tab you **publish as CSV**. Stock entry 
 ### Deploy Apps Script
 
 1. Open the spreadsheet → **Extensions → Apps Script**
-2. Paste `scripts/google-apps-script/movements-webapp.gs`
+2. Paste **all** of `scripts/google-apps-script/movements-webapp.gs` (replace the whole file)
 3. Run **createSheetsIfNeeded** once (▶ Run) — creates `Movements` only
-4. **Deploy → New deployment → Web app**
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-6. Copy the deployment URL into `dashboard/.env`:
+4. Run **testSkuListDebug** once (▶ Run) → **View → Execution log** — should show `category_column_index` ≥ 0 and `rows_with_category` > 0
+5. **Deploy → Manage deployments**
+   - If a web app already exists: click **✏️ Edit** → **Version: New version** → **Deploy** (saving the editor does **not** update the live URL)
+   - If none exists: **New deployment → Web app** → Execute as **Me**, Who has access **Anyone**
+6. Copy the **Web app** URL into `dashboard/.env` and Vercel:
+
+**Verify the deployment (paste in browser):**
+
+| URL | Expected |
+|-----|----------|
+| `.../exec` | JSON with `actions` and `api_version: 3` |
+| `.../exec?action=sku_list_debug` | JSON with `sku_list_meta`, **not** `"endpoint is running"` |
+| `.../exec?action=sku_list` | `sku_list` entries include `"product_category":"..."` |
+
+If `?action=sku_list_debug` still returns only `"FTI movements endpoint is running."`, the live deployment is still an **old version** — repeat step 5 with **New version**.
+
+```env
 
 ```env
 VITE_MOVEMENTS_SCRIPT_URL=https://script.google.com/macros/s/....../exec
@@ -127,6 +140,8 @@ Stock entry and all inventory writes use this tab to **auto-fill SKU**, **RSP**,
 If public embed still fails, the dashboard also tries your Apps Script URL as an image proxy (`?action=drive_image`) for files the script can read. Redeploy Apps Script after updates. **freeimage.host** gallery links are converted automatically. Product names in inventory must match **SKUList** (minor differences like missing “(10 gr)” are tolerated).
 
 Redeploy Apps Script after updates. The dashboard loads mappings via `?action=sku_list`.
+
+**Product categories on the dashboard:** publish the **SKUList** tab as CSV, then either (a) set `VITE_SKU_LIST_CSV_URL` on Vercel and **redeploy**, or (b) commit the URL in `dashboard/public/sku-list-config.json` (loaded at runtime — no Vercel env required). Local dev can also use `dashboard/.env`. After changing `movements-webapp.gs`, use **Deploy → Manage deployments → Edit → New version → Deploy** so `?action=sku_list` returns `product_category` from the API.
 
 ## 5) Edit / delete history
 

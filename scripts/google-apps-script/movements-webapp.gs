@@ -6,6 +6,8 @@
 const MOVEMENTS_SHEET_NAME = "Movements";
 const SKU_LIST_SHEET_NAME = "SKUList";
 const FALLBACK_INVENTORY_SHEET_NAME = "Inventory";
+/** Bump when SKU list API shape changes (dashboard checks this). */
+const SKU_LIST_API_VERSION = 3;
 
 const MOVEMENT_HEADERS = [
   "movement_id",
@@ -55,7 +57,26 @@ function doGet(e) {
   }
   if (action === "sku_list") {
     try {
-      return jsonResponse_({ ok: true, sku_list: listSkuMappings_() });
+      const map = loadSkuMap_();
+      return jsonResponse_({
+        ok: true,
+        sku_list: map.list,
+        sku_list_api_version: SKU_LIST_API_VERSION,
+        sku_list_meta: map.meta,
+      });
+    } catch (err) {
+      return jsonResponse_({ ok: false, error: String(err.message || err) });
+    }
+  }
+  if (action === "sku_list_debug") {
+    try {
+      const map = loadSkuMap_();
+      return jsonResponse_({
+        ok: true,
+        sku_list_api_version: SKU_LIST_API_VERSION,
+        sku_list_meta: map.meta,
+        sample: map.list.slice(0, 3),
+      });
     } catch (err) {
       return jsonResponse_({ ok: false, error: String(err.message || err) });
     }
@@ -69,7 +90,26 @@ function doGet(e) {
       );
     }
   }
-  return jsonResponse_({ ok: true, message: "FTI movements endpoint is running." });
+  return jsonResponse_({
+    ok: true,
+    message: "FTI movements endpoint is running.",
+    hint: "Add ?action=sku_list or ?action=sku_list_debug to this URL.",
+    api_version: typeof SKU_LIST_API_VERSION !== "undefined" ? SKU_LIST_API_VERSION : 0,
+    actions: ["list", "sku_list", "sku_list_debug", "drive_image"],
+  });
+}
+
+/**
+ * Run from the Apps Script editor (▶) to verify category column detection
+ * without using the web app URL. View → Execution log.
+ */
+function testSkuListDebug() {
+  const map = loadSkuMap_();
+  Logger.log(JSON.stringify({
+    api_version: SKU_LIST_API_VERSION,
+    meta: map.meta,
+    sample: map.list.slice(0, 3),
+  }, null, 2));
 }
 
 function serveDriveImage_(fileId) {
@@ -84,21 +124,64 @@ function listSkuMappings_() {
   return map.list;
 }
 
+function normalizeSheetHeader_(h) {
+  return String(h || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/\u00A0/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, " ");
+}
+
+function findHeaderRowIndex_(data) {
+  for (let r = 0; r < Math.min(8, data.length); r++) {
+    const headers = data[r].map(normalizeSheetHeader_);
+    const hasSku = headers.indexOf("sku") >= 0 || headers.indexOf("sku code") >= 0;
+    const hasProduct =
+      headers.indexOf("product_name") >= 0 ||
+      headers.indexOf("product") >= 0 ||
+      headers.indexOf("product name") >= 0;
+    if (hasSku && hasProduct) return r;
+  }
+  return 0;
+}
+
+function findCategoryColumnIndex_(headers) {
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    if (!h) continue;
+    if (h.indexOf("categ") >= 0) return i;
+    if (h.indexOf("kategori") >= 0) return i;
+    if (h === "product type" || h === "producttype") return i;
+  }
+  return -1;
+}
+
 function loadSkuMap_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SKU_LIST_SHEET_NAME);
   const byProduct = {};
   const bySku = {};
   const list = [];
+  const meta = {
+    sheet_name: SKU_LIST_SHEET_NAME,
+    sheet_found: Boolean(sheet),
+    sheet_gid: sheet ? sheet.getSheetId() : null,
+    api_version: SKU_LIST_API_VERSION,
+    headers: [],
+    category_column_index: -1,
+    category_column_header: "",
+    rows_with_category: 0,
+  };
 
-  if (!sheet) return { byProduct: byProduct, bySku: bySku, list: list };
+  if (!sheet) return { byProduct: byProduct, bySku: bySku, list: list, meta: meta };
 
   const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return { byProduct: byProduct, bySku: bySku, list: list };
+  if (data.length < 2) return { byProduct: byProduct, bySku: bySku, list: list, meta: meta };
 
-  const headers = data[0].map(function (h) {
-    return String(h).trim().toLowerCase();
-  });
+  const headerRow = findHeaderRowIndex_(data);
+  const headers = data[headerRow].map(normalizeSheetHeader_);
+  meta.headers = headers.slice();
 
   let iProduct = headers.indexOf("product_name");
   if (iProduct < 0) iProduct = headers.indexOf("product");
@@ -123,15 +206,15 @@ function loadSkuMap_() {
   if (iCogs < 0) iCogs = headers.indexOf("cogs_per_unit");
   if (iCogs < 0) iCogs = headers.indexOf("cost");
 
-  let iCategory = headers.indexOf("product_category");
-  if (iCategory < 0) iCategory = headers.indexOf("category");
-  if (iCategory < 0) iCategory = headers.indexOf("product category");
+  const iCategory = findCategoryColumnIndex_(headers);
+  meta.category_column_index = iCategory;
+  if (iCategory >= 0) meta.category_column_header = String(data[headerRow][iCategory] || "");
 
   if (iProduct < 0 || iSku < 0) {
     throw new Error('SKUList tab must have "product_name" (or "product") and "sku" columns.');
   }
 
-  for (let r = 1; r < data.length; r++) {
+  for (let r = headerRow + 1; r < data.length; r++) {
     const product = String(data[r][iProduct] || "").trim();
     const sku = String(data[r][iSku] || "").trim();
     if (!product || !sku) continue;
@@ -140,8 +223,15 @@ function loadSkuMap_() {
     const imageUrl = normalizeImageUrl_(imageRaw);
     const rsp = iRsp >= 0 ? parseSheetPrice_(data[r][iRsp]) : null;
     const cogs = iCogs >= 0 ? parseSheetPrice_(data[r][iCogs]) : null;
-    const category =
-      iCategory >= 0 ? String(data[r][iCategory] || "").trim() : "";
+    let category = "";
+    if (iCategory >= 0) {
+      category = String(data[r][iCategory] || "").trim();
+      if (!category) {
+        const display = sheet.getRange(r + 1, iCategory + 1).getDisplayValue();
+        category = String(display || "").trim();
+      }
+    }
+    if (category) meta.rows_with_category += 1;
 
     const catalog = { sku: sku, product_name: product };
     if (category) catalog.product_category = category;
@@ -161,7 +251,7 @@ function loadSkuMap_() {
     list.push(entry);
   }
 
-  return { byProduct: byProduct, bySku: bySku, list: list };
+  return { byProduct: byProduct, bySku: bySku, list: list, meta: meta };
 }
 
 function parseSheetPrice_(value) {

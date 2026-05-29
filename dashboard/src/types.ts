@@ -4,6 +4,8 @@ export type RejectRow = {
 
   product_name: string;
   sku?: string;
+  /** Optional — from inventory sheet and/or SKUList */
+  product_category?: string;
   /** Optional per-lot image URL from inventory sheet (else from SKUList) */
   image_url?: string;
   defect_reason?: string;
