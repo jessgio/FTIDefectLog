@@ -50,14 +50,39 @@ export function resolveProductCategory(
   return UNCATEGORIZED;
 }
 
+function categoryForRow(
+  r: RejectRow,
+  entries: SkuEntry[],
+  maps: ReturnType<typeof buildCategoryMaps>,
+): string {
+  const fromRow = (r.product_category ?? "").trim();
+  return fromRow || resolveProductCategory(entries, maps, r.product_name, r.sku);
+}
+
 /** Sum defective pcs per SKUList product_category for inventory rows. */
 export function computePcsByCategory(rows: RejectRow[], entries: SkuEntry[]): Record<string, number> {
   const maps = buildCategoryMaps(entries);
   const out: Record<string, number> = {};
   for (const r of rows) {
-    const fromRow = (r.product_category ?? "").trim();
-    const cat = fromRow || resolveProductCategory(entries, maps, r.product_name, r.sku);
+    const cat = categoryForRow(r, entries, maps);
     out[cat] = (out[cat] ?? 0) + (r.quantity_pcs || 0);
+  }
+  return out;
+}
+
+/** Sum defective stock COGS value per product_category (qty × cogs_per_unit). */
+export function computeCogsByCategory(rows: RejectRow[], entries: SkuEntry[]): Record<string, number> {
+  const maps = buildCategoryMaps(entries);
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    let cogs = r.cogs_per_unit;
+    if (typeof cogs !== "number" || !Number.isFinite(cogs)) {
+      const entry = lookupEntryFuzzy(entries, r.product_name, r.sku);
+      cogs = entry?.cogs_per_unit;
+    }
+    if (typeof cogs !== "number" || !Number.isFinite(cogs)) continue;
+    const cat = categoryForRow(r, entries, maps);
+    out[cat] = (out[cat] ?? 0) + cogs * (r.quantity_pcs || 0);
   }
   return out;
 }

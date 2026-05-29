@@ -5,7 +5,8 @@ import { compareExpiryAsc, formatExpiryDisplay } from "../expiry";
 import { formatCurrencyIdr, formatInt, valueOrDash } from "../format";
 import { computeMetrics } from "../metrics";
 import { CategorySetupPanel } from "../components/CategorySetupPanel";
-import { computePcsByCategory, skuListHasCategories } from "../skuList";
+import { CategoryMetricBars } from "../components/CategoryMetricBars";
+import { computeCogsByCategory, computePcsByCategory, skuListHasCategories } from "../skuList";
 import { ProductThumb } from "../components/ProductThumb";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { ProductDetailModal } from "../components/ProductDetailModal";
@@ -205,10 +206,25 @@ export function DashboardPage(): React.ReactElement {
     return computePcsByCategory(filtered, skuLookup.entries);
   }, [filtered, skuLookup.entries]);
 
-  const categoryRows = React.useMemo(() => {
+  const categoryRowsPcs = React.useMemo(() => {
     if (!pcsByCategory || !metrics) return [];
     return Object.entries(pcsByCategory).sort(([, a], [, b]) => b - a);
   }, [pcsByCategory, metrics]);
+
+  const cogsByCategory = React.useMemo(() => {
+    if (!filtered) return null;
+    return computeCogsByCategory(filtered, skuLookup.entries);
+  }, [filtered, skuLookup.entries]);
+
+  const categoryRowsCogs = React.useMemo(() => {
+    if (!cogsByCategory) return [];
+    return Object.entries(cogsByCategory).sort(([, a], [, b]) => b - a);
+  }, [cogsByCategory]);
+
+  const totalCategoryCogs = React.useMemo(
+    () => categoryRowsCogs.reduce((sum, [, v]) => sum + v, 0),
+    [categoryRowsCogs],
+  );
 
   const aggregateGroupBy: AggregateGroupBy | null =
     tableView === "product" ? "product_name" : tableView === "sku" ? "sku" : null;
@@ -336,8 +352,8 @@ export function DashboardPage(): React.ReactElement {
             </div>
           </section>
 
-          <section className="card">
-            <div className="cardTitle">Defects by product category (pcs)</div>
+          <section className="card categoryMetricsCard">
+            <div className="cardTitle">By category</div>
             {skuLookup.loading ? (
               <p className="hint">Loading SKUList categories…</p>
             ) : !skuListHasCategories(skuLookup.entries) ? (
@@ -347,36 +363,37 @@ export function DashboardPage(): React.ReactElement {
                 csvAttempts={skuLookup.csvAttempts}
                 onEntriesUpdated={skuLookup.applyCategoryCsv}
               />
-            ) : categoryRows.length ? (
-              <div className="barWrap" role="img" aria-label="Defective stock by product category">
-                {categoryRows.map(([category, pcs]) => {
-                  const pct = metrics.totalPcs ? (pcs / metrics.totalPcs) * 100 : 0;
-                  return (
-                    <div key={category} className="barRow barRowCategory">
-                      <div className="barLabel" title={category}>
-                        {category}
-                      </div>
-                      <div className="bar">
-                        <div className="barFill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <div className="barValue">{formatInt(pcs)}</div>
-                    </div>
-                  );
-                })}
+            ) : categoryRowsPcs.length ? (
+              <div className="categoryMetricsGrid">
+                <CategoryMetricBars
+                  title="Quantity (pcs)"
+                  rows={categoryRowsPcs}
+                  total={metrics.totalPcs}
+                  formatValue={formatInt}
+                  ariaLabel="Defective stock quantity by product category"
+                />
+                <CategoryMetricBars
+                  title="Value (COGS)"
+                  rows={categoryRowsCogs}
+                  total={totalCategoryCogs}
+                  formatValue={formatCurrencyIdr}
+                  ariaLabel="Defective stock COGS value by product category"
+                  emptyHint="No COGS on filtered lots (fill cogs_per_unit in the sheet)."
+                />
               </div>
             ) : (
               <p className="hint">No defective stock in the current filter.</p>
             )}
-            {skuListHasCategories(skuLookup.entries) && categoryRows.length > 0 ? (
+            {skuListHasCategories(skuLookup.entries) && categoryRowsPcs.length > 0 ? (
               <div className="hint">
-                Categories from SKUList
+                From SKUList
                 {skuLookup.categorySource === "csv"
-                  ? " (published CSV — redeploy Apps Script to use the API instead)"
+                  ? " (published CSV)"
                   : skuLookup.categorySource === "api"
-                    ? ` (${skuLookup.categoryCount} SKUs mapped)`
+                    ? ` · ${skuLookup.categoryCount} SKUs`
                     : ""}
                 {" · "}
-                unmapped lots show as Uncategorized
+                unmapped → Uncategorized
               </div>
             ) : null}
           </section>

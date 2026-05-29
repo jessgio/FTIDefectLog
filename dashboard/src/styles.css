@@ -338,6 +338,51 @@ section.card + section.card {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.categoryMetricsCard .cardTitle {
+  margin-bottom: 4px;
+}
+.categoryMetricsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 24px;
+  margin-top: 10px;
+}
+.categoryMetricPanel {
+  min-width: 0;
+}
+.categoryMetricTitle {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.categoryMetricEmpty {
+  margin: 0;
+  font-size: 12px;
+}
+.barWrapCompact {
+  margin-top: 0;
+  gap: 7px;
+}
+.barRowCategoryCompact {
+  grid-template-columns: minmax(0, 68px) 1fr minmax(52px, auto);
+  gap: 8px;
+}
+.barRowCategoryCompact .barLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.barRowCategoryCompact .barValue {
+  font-size: 11px;
+}
+.barRowCategoryCompact .bar {
+  height: 8px;
+}
 .barLabel {
   color: var(--muted);
   font-size: 12px;
@@ -1253,6 +1298,11 @@ section.card + section.card {
   .tableSectionHead {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .categoryMetricsGrid {
+    grid-template-columns: 1fr;
+    gap: 18px;
   }
 
   .formActions {
