@@ -1,5 +1,5 @@
 import React from "react";
-import { imageUrlCandidates, isGoogleDriveUrl, productInitials } from "../productImage";
+import { isGoogleDriveUrl, productInitials, useDisplayImageUrl } from "../productImage";
 
 type Props = {
   productName: string;
@@ -12,27 +12,21 @@ export function ProductThumb({
   imageUrl,
   size = "sm",
 }: Props): React.ReactElement {
-  const candidates = React.useMemo(
-    () => (imageUrl ? imageUrlCandidates(imageUrl) : []),
-    [imageUrl],
-  );
-  const [candidateIndex, setCandidateIndex] = React.useState(0);
+  const { src, loading } = useDisplayImageUrl(imageUrl);
   const [failed, setFailed] = React.useState(false);
 
   React.useEffect(() => {
-    setCandidateIndex(0);
     setFailed(false);
-  }, [imageUrl]);
+  }, [imageUrl, src]);
 
   const className = `productThumb productThumb--${size}`;
-  const src = candidates[candidateIndex] ?? "";
 
   const failHint =
     imageUrl && failed && isGoogleDriveUrl(imageUrl)
-      ? "Google Drive image could not load. Use “Anyone with the link” sharing, or store the file in the same Drive as the spreadsheet."
+      ? "Image could not load."
       : productName;
 
-  if (!src || failed) {
+  if (!src || failed || loading) {
     return (
       <span className={`${className} productThumbPlaceholder`} title={failHint}>
         {productInitials(productName)}
@@ -49,13 +43,7 @@ export function ProductThumb({
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
-      onError={() => {
-        if (candidateIndex + 1 < candidates.length) {
-          setCandidateIndex((i) => i + 1);
-        } else {
-          setFailed(true);
-        }
-      }}
+      onError={() => setFailed(true)}
     />
   );
 }

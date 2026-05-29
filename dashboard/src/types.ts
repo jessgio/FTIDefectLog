@@ -31,8 +31,8 @@ export type DefectLine = {
 export type MovementPayload = {
   action?: "create" | "update" | "delete";
   movement_id?: string;
-  /** Worksheet tab name — must match the tab published for the dashboard */
-  inventory_sheet_name?: string;
+  /** Optional client-generated UUID for photo upload paths before create */
+  id?: string;
   direction: MovementDirection;
   logged_by: string;
   product_name: string;
@@ -51,7 +51,6 @@ export type MovementPayload = {
 
 export type MovementRecord = {
   movement_id: string;
-  inventory_sheet_name: string;
   timestamp_utc: string;
   direction: MovementDirection;
   logged_by: string;

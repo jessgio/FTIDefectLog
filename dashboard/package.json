@@ -9,6 +9,7 @@
     "preview": "node ./node_modules/vite/bin/vite.js preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.0",
     "html5-qrcode": "^2.3.8",
     "papaparse": "^5.5.3",
     "react": "^19.1.1",

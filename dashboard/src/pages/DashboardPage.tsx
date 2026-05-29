@@ -4,14 +4,13 @@ import { AggregateTable } from "../components/AggregateTable";
 import { compareExpiryAsc, formatExpiryDisplay } from "../expiry";
 import { formatCurrencyIdr, formatInt, valueOrDash } from "../format";
 import { computeMetrics } from "../metrics";
-import { CategorySetupPanel } from "../components/CategorySetupPanel";
 import { CategoryMetricBars } from "../components/CategoryMetricBars";
 import { computeCogsByCategory, computePcsByCategory, skuListHasCategories } from "../skuList";
 import { ProductThumb } from "../components/ProductThumb";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { ProductDetailModal } from "../components/ProductDetailModal";
-import { getMovementsScriptUrl, listMovements } from "../movements";
-import { fetchRejectRows, getSheetCsvUrl } from "../sheet";
+import { fetchInventoryLots } from "../inventory";
+import { listMovements } from "../movements";
 import type { MovementRecord, RejectRow } from "../types";
 
 type TableView = "lot" | "product" | "sku";
@@ -82,14 +81,12 @@ export function DashboardPage(): React.ReactElement {
   const [rows, setRows] = React.useState<RejectRow[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
-  const sheetUrl = React.useMemo(() => getSheetCsvUrl(), []);
   const [sort, setSort] = React.useState<{ key: SortKey; dir: SortDir }>({
     key: "expiry_date",
     dir: "asc",
   });
   const [filters, setFilters] = React.useState<Partial<Record<SortKey, string>>>({});
   const [tableView, setTableView] = React.useState<TableView>("lot");
-  const scriptUrl = React.useMemo(() => getMovementsScriptUrl(), []);
   const skuLookup = useSkuLookup(true);
   const [movements, setMovements] = React.useState<MovementRecord[]>([]);
   const [detailProduct, setDetailProduct] = React.useState<string | null>(null);
@@ -102,7 +99,7 @@ export function DashboardPage(): React.ReactElement {
 
   React.useEffect(() => {
     let cancelled = false;
-    fetchRejectRows()
+    fetchInventoryLots()
       .then((r) => {
         if (cancelled) return;
         setRows(r.sort(sortByExpiryAsc));
@@ -117,7 +114,6 @@ export function DashboardPage(): React.ReactElement {
   }, []);
 
   React.useEffect(() => {
-    if (!scriptUrl) return;
     let cancelled = false;
     listMovements()
       .then((data) => {
@@ -129,7 +125,7 @@ export function DashboardPage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [scriptUrl]);
+  }, []);
 
   function openProductDetail(productName: string): void {
     setDetailProduct(productName);
@@ -256,20 +252,10 @@ export function DashboardPage(): React.ReactElement {
 
       {error ? (
         <div className="card error">
-          <div className="cardTitle">Setup needed</div>
+          <div className="cardTitle">Could not load inventory</div>
           <div className="mono">{error}</div>
-          {sheetUrl ? (
-            <div className="hint">
-              Tried URL: <span className="mono">{sheetUrl}</span>
-              <br />
-              Quick test: paste that URL into your browser. If it doesn’t download a
-              CSV, the sheet/tab isn’t published as CSV (or the GID is wrong).
-            </div>
-          ) : null}
           <div className="hint">
-            Fill <span className="mono">dashboard/.env</span> from{" "}
-            <span className="mono">dashboard/.env.example</span>, then ensure the
-            sheet tab is published to the web.
+            Check Supabase connection and that you are signed in with an allowed Google account.
           </div>
         </div>
       ) : null}
@@ -355,14 +341,13 @@ export function DashboardPage(): React.ReactElement {
           <section className="card categoryMetricsCard">
             <div className="cardTitle">By category</div>
             {skuLookup.loading ? (
-              <p className="hint">Loading SKUList categories…</p>
+              <p className="hint">Loading product categories…</p>
             ) : !skuListHasCategories(skuLookup.entries) ? (
-              <CategorySetupPanel
-                scriptUrl={scriptUrl}
-                entries={skuLookup.entries}
-                csvAttempts={skuLookup.csvAttempts}
-                onEntriesUpdated={skuLookup.applyCategoryCsv}
-              />
+              <p className="hint">
+                No product categories in the catalog yet. Add{" "}
+                <span className="mono">product_category</span> on rows in the{" "}
+                <span className="mono">products</span> table (or run the Google migration script).
+              </p>
             ) : categoryRowsPcs.length ? (
               <div className="categoryMetricsGrid">
                 <CategoryMetricBars
@@ -386,14 +371,7 @@ export function DashboardPage(): React.ReactElement {
             )}
             {skuListHasCategories(skuLookup.entries) && categoryRowsPcs.length > 0 ? (
               <div className="hint">
-                From SKUList
-                {skuLookup.categorySource === "csv"
-                  ? " (published CSV)"
-                  : skuLookup.categorySource === "api"
-                    ? ` · ${skuLookup.categoryCount} SKUs`
-                    : ""}
-                {" · "}
-                unmapped → Uncategorized
+                From product catalog · {skuLookup.categoryCount} SKUs · unmapped → Uncategorized
               </div>
             ) : null}
           </section>
@@ -694,14 +672,14 @@ export function DashboardPage(): React.ReactElement {
             <div className="tableMeta">
               Showing <span className="mono">{formatInt(filtered?.length ?? 0)}</span> lots
               {skuLookup.loadError ? (
-                <span className="hint warnHint"> · SKUList images unavailable: {skuLookup.loadError}</span>
+                <span className="hint warnHint"> · Product catalog unavailable: {skuLookup.loadError}</span>
               ) : skuLookup.imageCount > 0 ? (
                 <span className="hint">
                   {" "}
-                  · <span className="mono">{skuLookup.imageCount}</span> product photos in SKUList
+                  · <span className="mono">{skuLookup.imageCount}</span> product photos in catalog
                 </span>
-              ) : !skuLookup.loading && scriptUrl ? (
-                <span className="hint"> · No image_url values in SKUList yet</span>
+              ) : !skuLookup.loading ? (
+                <span className="hint"> · No product images in catalog yet</span>
               ) : null}
               <button
                 type="button"

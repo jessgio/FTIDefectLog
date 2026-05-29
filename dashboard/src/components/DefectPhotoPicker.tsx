@@ -1,6 +1,6 @@
 import React from "react";
 import { MAX_PHOTOS_PER_DEFECT, readPhotoFiles } from "../defectPhotos";
-import { imageUrlCandidates } from "../productImage";
+import { ResolvedImage } from "./ResolvedImage";
 
 type Props = {
   photos: string[];
@@ -43,12 +43,7 @@ export function DefectPhotoPicker({ photos, onChange, disabled }: Props): React.
       <div className="defectPhotoThumbs">
         {photos.map((src, i) => (
           <div key={`${i}-${src.slice(0, 24)}`} className="defectPhotoThumbWrap">
-            <img
-              className="defectPhotoThumb"
-              src={src.startsWith("data:") ? src : imageUrlCandidates(src)[0]}
-              alt=""
-              referrerPolicy="no-referrer"
-            />
+            <ResolvedImage className="defectPhotoThumb" url={src} />
             {!disabled ? (
               <button
                 type="button"

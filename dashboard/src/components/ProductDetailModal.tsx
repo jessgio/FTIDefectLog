@@ -7,7 +7,7 @@ import {
   filterMovementsForProduct,
   type DefectEvidenceGroup,
 } from "../productDefects";
-import { imageUrlCandidates } from "../productImage";
+import { ResolvedImage } from "./ResolvedImage";
 import type { MovementRecord, RejectRow } from "../types";
 import { ProductThumb } from "./ProductThumb";
 
@@ -41,22 +41,19 @@ function DefectGallery({ group }: { group: DefectEvidenceGroup }): React.ReactEl
       </div>
       {group.photos.length ? (
         <div className="defectPhotoGrid">
-          {group.photos.map((p, i) => {
-            const src = imageUrlCandidates(p.url)[0];
-            return (
-              <button
-                key={`${p.movement_id}-${p.piece}-${i}`}
-                type="button"
-                className="defectPhotoGridItem"
-                onClick={() => setLightbox(src)}
-              >
-                <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                <span className="defectPhotoCaption">
-                  Pc {p.piece ?? "—"} · {p.batch_code}
-                </span>
-              </button>
-            );
-          })}
+          {group.photos.map((p, i) => (
+            <button
+              key={`${p.movement_id}-${p.piece}-${i}`}
+              type="button"
+              className="defectPhotoGridItem"
+              onClick={() => setLightbox(p.url)}
+            >
+              <ResolvedImage className="defectPhotoGridImg" url={p.url} />
+              <span className="defectPhotoCaption">
+                Pc {p.piece ?? "—"} · {p.batch_code}
+              </span>
+            </button>
+          ))}
         </div>
       ) : (
         <p className="hint">No photos for this defect type yet.</p>
@@ -67,12 +64,10 @@ function DefectGallery({ group }: { group: DefectEvidenceGroup }): React.ReactEl
           role="presentation"
           onClick={() => setLightbox(null)}
         >
-          <img
+          <ResolvedImage
             className="lightboxImage"
-            src={lightbox}
+            url={lightbox}
             alt=""
-            referrerPolicy="no-referrer"
-            onClick={(e) => e.stopPropagation()}
           />
         </div>
       ) : null}

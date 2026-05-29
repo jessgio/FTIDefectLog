@@ -1,12 +1,6 @@
 import React from "react";
 import { countEntriesWithBarcode } from "../barcode";
-import { fetchSkuList } from "../movements";
-import {
-  countEntriesWithCategory,
-  fetchSkuListFromPublishedCsvWithDiagnostics,
-  mergeSkuEntries,
-  type SkuCsvFetchAttempt,
-} from "../skuListCsv";
+import { fetchProducts } from "../api/movements";
 import {
   buildImageByProduct,
   buildSkuByProduct,
@@ -28,70 +22,34 @@ export function useSkuLookup(enabled: boolean): {
   imageCount: number;
   categoryCount: number;
   barcodeCount: number;
-  categorySource: "api" | "csv" | "none";
   loadError: string | null;
-  csvAttempts: SkuCsvFetchAttempt[];
-  applyCategoryCsv: (merged: SkuEntry[]) => void;
 } {
   const [entries, setEntries] = React.useState<SkuEntry[]>([]);
   const [loading, setLoading] = React.useState(enabled);
   const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [categorySource, setCategorySource] = React.useState<"api" | "csv" | "none">("none");
-  const [csvAttempts, setCsvAttempts] = React.useState<SkuCsvFetchAttempt[]>([]);
 
   React.useEffect(() => {
     if (!enabled) {
       setLoading(false);
-      setCategorySource("none");
       return;
     }
     let cancelled = false;
     (async () => {
-      let err: string | null = null;
-
-      // Published CSV first (barcode + category work without Apps Script redeploy)
-      const { entries: fromCsv, attempts } = await fetchSkuListFromPublishedCsvWithDiagnostics();
-      if (!cancelled) setCsvAttempts(attempts);
-
-      let list: SkuEntry[] = fromCsv;
-      let hadApiCategories = false;
-
       try {
-        const apiList = await fetchSkuList();
-        if (apiList.length) {
-          list = fromCsv.length ? mergeSkuEntries(apiList, fromCsv) : apiList;
-          hadApiCategories = skuListHasCategories(apiList);
+        const list = await fetchProducts();
+        if (!cancelled) {
+          setEntries(list);
+          setLoadError(null);
         }
       } catch (e: unknown) {
-        if (!fromCsv.length) {
-          err = e instanceof Error ? e.message : String(e);
+        if (!cancelled) {
+          setEntries([]);
+          setLoadError(e instanceof Error ? e.message : String(e));
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      let source: "api" | "csv" | "none" = "none";
-      if (skuListHasCategories(list)) {
-        source = hadApiCategories ? "api" : "csv";
-      }
-
-      if (!skuListHasCategories(list) && !countEntriesWithBarcode(list) && !err) {
-        const failed = attempts.find((a) => !a.ok);
-        const noData = attempts.find((a) => a.ok && a.withBarcode === 0 && a.withCategory === 0);
-        if (failed) err = failed.detail;
-        else if (noData) err = noData.detail;
-        else if (!attempts.length) {
-          err =
-            "Set VITE_SKU_LIST_CSV_URL or dashboard/public/sku-list-config.json to your SKUList Publish-to-web CSV link, then redeploy.";
-        }
-      }
-
-      if (!cancelled) {
-        setEntries(list);
-        setLoadError(err);
-        setCategorySource(source);
-      }
-    })().finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -121,14 +79,11 @@ export function useSkuLookup(enabled: boolean): {
     [byProductImage, entries],
   );
 
-  const categoryCount = React.useMemo(() => countEntriesWithCategory(entries), [entries]);
+  const categoryCount = React.useMemo(
+    () => entries.filter((e) => (e.product_category ?? "").trim()).length,
+    [entries],
+  );
   const barcodeCount = React.useMemo(() => countEntriesWithBarcode(entries), [entries]);
-
-  const applyCategoryCsv = React.useCallback((merged: SkuEntry[]) => {
-    setEntries(merged);
-    setCategorySource("csv");
-    setLoadError(null);
-  }, []);
 
   return {
     entries,
@@ -141,9 +96,6 @@ export function useSkuLookup(enabled: boolean): {
     imageCount,
     categoryCount,
     barcodeCount,
-    categorySource,
     loadError,
-    csvAttempts,
-    applyCategoryCsv,
   };
 }

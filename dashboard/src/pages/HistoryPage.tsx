@@ -15,8 +15,6 @@ import { useSkuLookup } from "../hooks/useSkuLookup";
 import { formatPriceField } from "../skuList";
 import {
   deleteMovement,
-  getInventorySheetName,
-  getMovementsScriptUrl,
   listMovements,
   updateMovement,
 } from "../movements";
@@ -39,8 +37,6 @@ function formatWhen(iso: string): string {
 }
 
 export function HistoryPage(): React.ReactElement {
-  const scriptUrl = React.useMemo(() => getMovementsScriptUrl(), []);
-  const inventorySheetName = React.useMemo(() => getInventorySheetName(), []);
   const [rows, setRows] = React.useState<MovementRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -49,7 +45,7 @@ export function HistoryPage(): React.ReactElement {
   const [attachingPhotos, setAttachingPhotos] = React.useState<MovementRecord | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
-  const skuLookup = useSkuLookup(Boolean(scriptUrl));
+  const skuLookup = useSkuLookup(true);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -65,9 +61,8 @@ export function HistoryPage(): React.ReactElement {
   }, []);
 
   React.useEffect(() => {
-    if (scriptUrl) void load();
-    else setLoading(false);
-  }, [scriptUrl, load]);
+    void load();
+  }, [load]);
 
   const filtered = React.useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -114,16 +109,6 @@ export function HistoryPage(): React.ReactElement {
           </button>
         </div>
       </header>
-
-      {!scriptUrl || !inventorySheetName ? (
-        <div className="card error">
-          <div className="cardTitle">Setup needed</div>
-          <div className="hint">
-            Configure <span className="mono">VITE_MOVEMENTS_SCRIPT_URL</span> and{" "}
-            <span className="mono">VITE_INVENTORY_SHEET_NAME</span>, then redeploy Apps Script.
-          </div>
-        </div>
-      ) : null}
 
       {message ? (
         <div className="card">
@@ -252,7 +237,6 @@ export function HistoryPage(): React.ReactElement {
       {editing ? (
         <EditMovementDialog
           record={editing}
-          inventorySheetName={inventorySheetName!}
           busy={busy}
           onClose={() => setEditing(null)}
           onSaved={async (msg) => {
@@ -270,7 +254,6 @@ export function HistoryPage(): React.ReactElement {
 
 type EditProps = {
   record: MovementRecord;
-  inventorySheetName: string;
   busy: boolean;
   onClose: () => void;
   onSaved: (msg: string) => void | Promise<void>;
@@ -280,7 +263,6 @@ type EditProps = {
 
 function EditMovementDialog({
   record,
-  inventorySheetName,
   busy,
   onClose,
   onSaved,
@@ -338,7 +320,6 @@ function EditMovementDialog({
     }
 
     const payload = {
-      inventory_sheet_name: inventorySheetName,
       direction,
       logged_by: loggedBy.trim(),
       product_name: productName.trim(),

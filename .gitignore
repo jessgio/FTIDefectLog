@@ -19,3 +19,6 @@ Thumbs.db
 
 # Local output
 out/
+
+# Supabase
+supabase/.temp/

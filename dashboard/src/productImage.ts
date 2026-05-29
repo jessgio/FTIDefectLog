@@ -1,9 +1,7 @@
-function getMovementsScriptUrl(): string | null {
-  const url = import.meta.env.VITE_MOVEMENTS_SCRIPT_URL as string | undefined;
-  return url?.trim() ? url.trim() : null;
-}
+import React from "react";
+import { getSignedStorageUrl, isStoragePath } from "./lib/storage";
 
-/** Extract Google Drive file ID from common share / view link formats. */
+/** Extract Google Drive file ID from legacy migrated URLs. */
 export function extractGoogleDriveFileId(url: string): string | null {
   const u = url.trim();
   if (!u) return null;
@@ -23,24 +21,14 @@ export function extractGoogleDriveFileId(url: string): string | null {
   return null;
 }
 
-/** Apps Script proxy — works for files the script owner can read (no public link required). */
-export function driveImageProxyUrl(fileId: string): string | null {
-  const scriptUrl = getMovementsScriptUrl();
-  if (!scriptUrl || !fileId) return null;
-  const base = scriptUrl.replace(/\?.*$/, "");
-  return `${base}?action=drive_image&id=${encodeURIComponent(fileId)}`;
-}
-
 export function googleDriveEmbedUrls(fileId: string): string[] {
   return [
     `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
     `https://drive.google.com/uc?export=view&id=${fileId}`,
-    `https://drive.google.com/uc?export=download&id=${fileId}`,
-    `https://lh3.googleusercontent.com/d/${fileId}=w400`,
   ];
 }
 
-/** Normalize image URLs for display (e.g. Google Drive share links). */
+/** Normalize image URLs for display (legacy Drive / external hosts). */
 export function normalizeImageUrl(url: string): string {
   const u = url.trim();
   if (!u) return "";
@@ -52,56 +40,19 @@ export function normalizeImageUrl(url: string): string {
 }
 
 /**
- * Gallery / host page links often fail in <img>. Return direct-URL candidates to try in order.
+ * Return URL candidates to try in order (sync — storage paths resolved via useDisplayImageUrl).
  */
 export function imageUrlCandidates(url: string): string[] {
   const u = url.trim();
   if (!u) return [];
+  if (u.startsWith("data:")) return [u];
+  if (isStoragePath(u)) return [u];
 
   const fileId = extractGoogleDriveFileId(u);
-  if (fileId) {
-    const out = [...googleDriveEmbedUrls(fileId)];
-    const proxy = driveImageProxyUrl(fileId);
-    if (proxy) out.push(proxy);
-    return [...new Set(out)];
-  }
+  if (fileId) return [...new Set(googleDriveEmbedUrls(fileId))];
 
   const normalized = normalizeImageUrl(u);
-  const out: string[] = [normalized];
-
-  const freeImage = normalized.match(/freeimage\.host\/i\/([A-Za-z0-9]+)/i);
-  if (freeImage) {
-    const id = freeImage[1];
-    for (const ext of ["jpg", "png", "webp"]) {
-      out.push(`https://iili.io/${id}.${ext}`);
-    }
-    out.push(`https://freeimage.host/image/${id}.jpg`);
-  }
-
-  const iiliPage = normalized.match(/iili\.io\/([A-Za-z0-9]+)(?:\.[a-z]+)?$/i);
-  if (iiliPage && !/\.(jpe?g|png|gif|webp)$/i.test(normalized)) {
-    const id = iiliPage[1];
-    for (const ext of ["jpg", "png", "webp"]) {
-      out.push(`https://iili.io/${id}.${ext}`);
-    }
-  }
-
-  const imgbbPage = normalized.match(/imgbb\.com\/([A-Za-z0-9]+)/i);
-  if (imgbbPage) {
-    out.push(`https://i.ibb.co/${imgbbPage[1]}.jpg`);
-  }
-
-  if (/\.(jpe?g|png|gif|webp)(\?|$)/i.test(normalized)) {
-    return [...new Set(out)];
-  }
-
-  if (!/\.(jpe?g|png|gif|webp)/i.test(normalized)) {
-    for (const ext of ["jpg", "png", "webp"]) {
-      out.push(`${normalized.replace(/\/$/, "")}.${ext}`);
-    }
-  }
-
-  return [...new Set(out)];
+  return [normalized];
 }
 
 export function productInitials(name: string): string {
@@ -122,4 +73,48 @@ export function stripProductSuffix(name: string): string {
 
 export function isGoogleDriveUrl(url: string): boolean {
   return extractGoogleDriveFileId(url) != null;
+}
+
+/** Resolve storage paths to signed HTTPS URLs for img src. */
+export function useDisplayImageUrl(input: string | null | undefined): {
+  src: string;
+  loading: boolean;
+} {
+  const [src, setSrc] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const value = (input ?? "").trim();
+    if (!value) {
+      setSrc("");
+      setLoading(false);
+      return;
+    }
+
+    if (value.startsWith("data:") || value.startsWith("http://") || value.startsWith("https://")) {
+      setSrc(value);
+      setLoading(false);
+      return;
+    }
+
+    if (isStoragePath(value)) {
+      setLoading(true);
+      void getSignedStorageUrl(value).then((signed) => {
+        if (cancelled) return;
+        setSrc(signed ?? "");
+        setLoading(false);
+      });
+      return;
+    }
+
+    setSrc(normalizeImageUrl(value));
+    setLoading(false);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [input]);
+
+  return { src, loading };
 }

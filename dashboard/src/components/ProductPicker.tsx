@@ -7,7 +7,6 @@ import {
   searchProducts,
   type ProductSearchHit,
 } from "../productSearch";
-import type { SkuCsvFetchAttempt } from "../skuListCsv";
 import type { SkuEntry } from "../skuList";
 
 type Props = {
@@ -17,7 +16,6 @@ type Props = {
   stockNames: string[];
   loading?: boolean;
   barcodeCount?: number;
-  csvAttempts?: SkuCsvFetchAttempt[];
   imageUrl?: string;
   onChange: (productName: string) => void;
   onSelectEntry: (entry: SkuEntry) => void;
@@ -32,7 +30,6 @@ export function ProductPicker({
   stockNames,
   loading,
   barcodeCount = 0,
-  csvAttempts = [],
   imageUrl,
   onChange,
   onSelectEntry,
@@ -118,7 +115,7 @@ export function ProductPicker({
       return;
     }
     setScanMsg(
-      `No match for “${code}”. Add this barcode in the SKUList tab (barcode column) for the correct SKU.`,
+      `No match for “${code}”. Add this barcode to the product catalog for the correct SKU.`,
     );
     onScanUnknown?.(code);
   }
@@ -191,42 +188,22 @@ export function ProductPicker({
         ) : entries.length ? (
           barcodeCount > 0 ? (
             <span className="fieldHint">
-              Scan matches <strong>barcode</strong> in SKUList ({barcodeCount} mapped).
+              Scan matches <strong>barcode</strong> in catalog ({barcodeCount} mapped).
               {sku ? ` SKU: ${sku}` : ""}
             </span>
           ) : (
             <span className="fieldHint warnHint">
-              SKUList loaded but no <strong>barcode</strong> column found — add it in Sheets and
-              republish CSV, or redeploy Apps Script.
+              Product catalog loaded but no <strong>barcode</strong> values yet.
             </span>
           )
         ) : (
-          <span className="fieldHint">SKUList not loaded — you can still type product names.</span>
+          <span className="fieldHint">Product catalog not loaded — you can still type product names.</span>
         )}
 
         {scanMsg ? (
           <span className={`fieldHint ${scanMsg.startsWith("Matched") ? "" : "warnHint"}`}>
             {scanMsg}
           </span>
-        ) : null}
-
-        {!loading && csvAttempts.length > 0 && barcodeCount === 0 ? (
-          <details className="categorySetupDetails">
-            <summary>SKUList CSV diagnostics</summary>
-            <ul className="csvAttemptList">
-              {csvAttempts.map((a, i) => (
-                <li
-                  key={i}
-                  className={
-                    a.ok && a.withBarcode > 0 ? "csvAttemptOk" : "csvAttemptFail"
-                  }
-                >
-                  <span className="mono csvAttemptUrl">{a.url}</span>
-                  <span>{a.detail}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
         ) : null}
       </div>
 

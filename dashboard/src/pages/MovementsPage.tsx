@@ -11,8 +11,9 @@ import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry
 import { ProductPicker } from "../components/ProductPicker";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { formatPriceField, type SkuEntry } from "../skuList";
-import { fetchRejectRows } from "../sheet";
-import { getInventorySheetName, getMovementsScriptUrl, submitMovement } from "../movements";
+import { fetchInventoryLots } from "../inventory";
+import { submitMovement } from "../movements";
+import { useAuth } from "../context/AuthProvider";
 import type { MovementDirection, MovementPayload, RejectRow } from "../types";
 
 const DISPOSITIONS = [
@@ -61,8 +62,7 @@ function lotKey(r: RejectRow): string {
 }
 
 export function MovementsPage(): React.ReactElement {
-  const scriptUrl = React.useMemo(() => getMovementsScriptUrl(), []);
-  const inventorySheetName = React.useMemo(() => getInventorySheetName(), []);
+  const { user } = useAuth();
   const skuLookup = useSkuLookup(true);
   const [stock, setStock] = React.useState<RejectRow[]>([]);
   const [stockError, setStockError] = React.useState<string | null>(null);
@@ -73,12 +73,19 @@ export function MovementsPage(): React.ReactElement {
   const [message, setMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    fetchRejectRows()
+    fetchInventoryLots()
       .then(setStock)
       .catch((e: unknown) => {
         setStockError(e instanceof Error ? e.message : String(e));
       });
   }, []);
+
+  React.useEffect(() => {
+    if (user?.email && !form.logged_by) {
+      const name = user.user_metadata?.full_name ?? user.email.split("@")[0];
+      setForm((f) => ({ ...f, logged_by: name }));
+    }
+  }, [user, form.logged_by]);
 
   const stockProductNames = React.useMemo(() => {
     const names = new Set<string>();
@@ -206,7 +213,6 @@ export function MovementsPage(): React.ReactElement {
     }
 
     const payload: MovementPayload = {
-      inventory_sheet_name: inventorySheetName ?? undefined,
       direction: form.direction,
       logged_by: form.logged_by.trim(),
       product_name: form.product_name.trim(),
@@ -251,6 +257,9 @@ export function MovementsPage(): React.ReactElement {
       setForm(emptyForm(form.direction));
       setDefectRows([]);
       setNoExpiry(false);
+      fetchInventoryLots()
+        .then(setStock)
+        .catch(() => {});
     } catch (err: unknown) {
       setStatus("error");
       setMessage(err instanceof Error ? err.message : String(err));
@@ -268,26 +277,12 @@ export function MovementsPage(): React.ReactElement {
         </div>
       </header>
 
-      {!scriptUrl || !inventorySheetName ? (
-        <div className="card error">
-          <div className="cardTitle">Setup needed</div>
-          <div className="hint">
-            Add to <span className="mono">dashboard/.env</span>:
-            <br />
-            <span className="mono">VITE_MOVEMENTS_SCRIPT_URL</span> (Apps Script web app)
-            <br />
-            <span className="mono">VITE_INVENTORY_SHEET_NAME</span> — exact Google Sheets tab
-            name used for the published dashboard CSV (same tab, not a separate Inventory tab).
-          </div>
-        </div>
-      ) : null}
-
-      {stockError ? (
+      {!stockError ? null : (
         <div className="card">
           <div className="cardTitle">Stock list unavailable</div>
           <div className="hint">You can still submit manually. ({stockError})</div>
         </div>
-      ) : null}
+      )}
 
       <form className="card formCard" onSubmit={onSubmit}>
         <div className="directionToggle" role="group" aria-label="Movement type">
@@ -356,7 +351,6 @@ export function MovementsPage(): React.ReactElement {
               stockNames={stockProductNames}
               loading={skuLookup.loading}
               barcodeCount={skuLookup.barcodeCount}
-              csvAttempts={skuLookup.csvAttempts}
               imageUrl={skuLookup.lookupImage(form.product_name, form.sku)}
               onChange={onProductNameChange}
               onSelectEntry={onProductSelectEntry}
@@ -562,7 +556,7 @@ export function MovementsPage(): React.ReactElement {
           <button
             type="submit"
             className="primaryBtn"
-            disabled={status === "submitting" || !scriptUrl || !inventorySheetName}
+            disabled={status === "submitting"}
           >
             {status === "submitting" ? "Uploading & saving…" : "Save movement"}
           </button>
