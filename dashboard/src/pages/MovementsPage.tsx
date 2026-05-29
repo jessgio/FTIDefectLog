@@ -1,6 +1,6 @@
 import React from "react";
 import { DefectGroupList } from "../components/DefectGroupList";
-import { DEFECT_REASONS, MAX_DEFECT_LINES } from "../defectReasons";
+import { DEFECT_REASONS } from "../defectReasons";
 import {
   defectGroupsToLines,
   syncDefectGroupsToQuantity,
@@ -192,12 +192,6 @@ export function MovementsPage(): React.ReactElement {
       setMessage("Quantity must be a positive number.");
       return;
     }
-    if (form.direction === "inbound" && qty > MAX_DEFECT_LINES) {
-      setStatus("error");
-      setMessage(`Please log at most ${MAX_DEFECT_LINES} pieces per submission (split into multiple entries).`);
-      return;
-    }
-
     const payload: MovementPayload = {
       direction: form.direction,
       logged_by: form.logged_by.trim(),
@@ -392,7 +386,6 @@ export function MovementsPage(): React.ReactElement {
               className="fieldInput"
               type="number"
               min={1}
-              max={MAX_DEFECT_LINES}
               step={1}
               value={form.quantity_pcs}
               onChange={(e) => onQuantityChange(e.target.value)}
@@ -453,7 +446,7 @@ export function MovementsPage(): React.ReactElement {
           </label>
         </div>
 
-        {form.direction === "inbound" && qtyValid && qtyParsed <= MAX_DEFECT_LINES ? (
+        {form.direction === "inbound" && qtyValid ? (
           <DefectGroupList
             totalQty={qtyParsed}
             groups={defectGroups}
@@ -461,12 +454,6 @@ export function MovementsPage(): React.ReactElement {
             defaultReason={form.defect_reason}
             hint="Attach up to 2 photos per row (optional). Saved with this inbound entry."
           />
-        ) : null}
-
-        {form.direction === "inbound" && qtyValid && qtyParsed > MAX_DEFECT_LINES ? (
-          <p className="formHint">
-            Quantity exceeds {MAX_DEFECT_LINES} per submission — split into multiple entries.
-          </p>
         ) : null}
 
         {message ? (

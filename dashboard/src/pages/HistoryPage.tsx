@@ -1,5 +1,5 @@
 import React from "react";
-import { DEFECT_REASONS, MAX_DEFECT_LINES } from "../defectReasons";
+import { DEFECT_REASONS } from "../defectReasons";
 import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
 import { formatInt } from "../format";
 import { AttachPhotosDialog } from "../components/AttachPhotosDialog";
@@ -299,9 +299,8 @@ function EditMovementDialog({
 
   React.useEffect(() => {
     if (direction !== "inbound" || !qtyValid) return;
-    if (qty > MAX_DEFECT_LINES) return;
     setDefectGroups((prev) => syncDefectGroupsToQuantity(prev, qty, defectReason));
-  }, [direction, quantity, qtyValid, defectReason]);
+  }, [direction, quantity, qty, qtyValid, defectReason]);
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -317,11 +316,6 @@ function EditMovementDialog({
       onError("Quantity must be positive.");
       return;
     }
-    if (direction === "inbound" && qty > MAX_DEFECT_LINES) {
-      onError(`Max ${MAX_DEFECT_LINES} pieces per entry.`);
-      return;
-    }
-
     const payload = {
       direction,
       logged_by: loggedBy.trim(),
@@ -531,7 +525,7 @@ function EditMovementDialog({
             ) : null}
           </div>
 
-          {direction === "inbound" && qtyValid && qty <= MAX_DEFECT_LINES ? (
+          {direction === "inbound" && qtyValid ? (
             <DefectGroupList
               totalQty={qty}
               groups={defectGroups}

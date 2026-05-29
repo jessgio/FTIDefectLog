@@ -8,5 +8,3 @@ export const DEFECT_REASONS = [
 ] as const;
 
 export type DefectReason = (typeof DEFECT_REASONS)[number];
-
-export const MAX_DEFECT_LINES = 100;
