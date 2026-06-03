@@ -26,7 +26,7 @@ set search_path = public, app
 as $$
 declare
   v_product text := trim(p_product);
-  m record;
+  m public.movements;
   v_replayed integer := 0;
   v_purged integer;
 begin
