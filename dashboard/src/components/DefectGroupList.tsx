@@ -1,6 +1,6 @@
 import React from "react";
 import { DefectPhotoPicker } from "./DefectPhotoPicker";
-import { DEFECT_REASONS } from "../defectReasons";
+import { defectReasonOptions, normalizeDefectLabel } from "../defectReasons";
 import {
   assignedDefectQuantity,
   emptyDefectGroup,
@@ -26,6 +26,10 @@ export function DefectGroupList({
 }: Props): React.ReactElement {
   const assigned = assignedDefectQuantity(groups);
   const remaining = totalQty - assigned;
+  const reasonOptions = React.useMemo(
+    () => defectReasonOptions(groups.map((g) => g.defect_reason).join(";")),
+    [groups],
+  );
 
   function setGroupAt(index: number, partial: Partial<DefectGroupRowState>): void {
     onChange(
@@ -72,7 +76,7 @@ export function DefectGroupList({
             }}
           >
             <option value="">Choose defect…</option>
-            {DEFECT_REASONS.map((r) => (
+            {reasonOptions.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -97,11 +101,15 @@ export function DefectGroupList({
                 <td>
                   <select
                     className="fieldInput"
-                    value={row.defect_reason}
+                    value={
+                      reasonOptions.includes(row.defect_reason)
+                        ? row.defect_reason
+                        : normalizeDefectLabel(row.defect_reason) || reasonOptions[0]
+                    }
                     onChange={(e) => setGroupAt(i, { defect_reason: e.target.value })}
                     required
                   >
-                    {DEFECT_REASONS.map((r) => (
+                    {defectReasonOptions(row.defect_reason).map((r) => (
                       <option key={r} value={r}>
                         {r}
                       </option>

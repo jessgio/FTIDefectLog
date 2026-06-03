@@ -1,4 +1,4 @@
-import { DEFECT_REASONS } from "./defectReasons";
+import { DEFECT_REASONS, normalizeDefectLabel } from "./defectReasons";
 import type { DefectLine, MovementRecord } from "./types";
 
 export type DefectGroupRowState = {
@@ -54,13 +54,42 @@ export function linesToDefectGroups(lines: DefectLine[]): DefectGroupRowState[] 
   return order.map((reason) => groups.get(reason)!);
 }
 
+function parseDefectReasonSummary(summary: string): DefectGroupRowState[] {
+  const groups: DefectGroupRowState[] = [];
+  for (const part of summary.split(";")) {
+    const segment = part.trim();
+    if (!segment) continue;
+    const m = segment.match(/^(.+?)\s*\((\d+)\)\s*$/u);
+    if (m) {
+      const qty = Number(m[2]);
+      if (qty > 0) {
+        groups.push({
+          defect_reason: m[1].trim(),
+          quantity: qty,
+          photos: [],
+        });
+      }
+    } else {
+      const reason = normalizeDefectLabel(segment);
+      if (reason) groups.push({ defect_reason: reason, quantity: 1, photos: [] });
+    }
+  }
+  return groups;
+}
+
 export function recordToDefectGroups(record: MovementRecord): DefectGroupRowState[] {
   if (record.defect_lines?.length) {
     return linesToDefectGroups(record.defect_lines);
   }
   const qty = record.quantity_pcs;
-  const fill =
-    record.defect_reason?.split(";")[0]?.replace(/\s*\(\d+\)\s*$/, "").trim() || DEFECT_REASONS[0];
+  const summary = record.defect_reason?.trim();
+  if (summary && (summary.includes(";") || /\(\d+\)/.test(summary))) {
+    const parsed = parseDefectReasonSummary(summary);
+    if (parsed.length && assignedDefectQuantity(parsed) === qty) {
+      return parsed;
+    }
+  }
+  const fill = normalizeDefectLabel(summary) || DEFECT_REASONS[0];
   return qty > 0 ? [emptyDefectGroup(fill, qty)] : [];
 }
 
