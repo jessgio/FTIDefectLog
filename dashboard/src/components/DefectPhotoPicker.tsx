@@ -12,6 +12,7 @@ export function DefectPhotoPicker({ photos, onChange, disabled }: Props): React.
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [lightbox, setLightbox] = React.useState<string | null>(null);
 
   async function onFiles(files: FileList | null): Promise<void> {
     if (!files?.length || disabled) return;
@@ -43,12 +44,22 @@ export function DefectPhotoPicker({ photos, onChange, disabled }: Props): React.
       <div className="defectPhotoThumbs">
         {photos.map((src, i) => (
           <div key={`${i}-${src.slice(0, 24)}`} className="defectPhotoThumbWrap">
-            <ResolvedImage className="defectPhotoThumb" url={src} />
+            <button
+              type="button"
+              className="defectPhotoThumbBtn"
+              onClick={() => setLightbox(src)}
+              aria-label="View photo full size"
+            >
+              <ResolvedImage className="defectPhotoThumb" url={src} alt="" />
+            </button>
             {!disabled ? (
               <button
                 type="button"
                 className="defectPhotoRemove"
-                onClick={() => removeAt(i)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeAt(i);
+                }}
                 aria-label="Remove photo"
               >
                 ×
@@ -76,6 +87,24 @@ export function DefectPhotoPicker({ photos, onChange, disabled }: Props): React.
         onChange={(e) => void onFiles(e.target.files)}
       />
       {error ? <span className="fieldHint warnHint">{error}</span> : null}
+
+      {lightbox ? (
+        <div
+          className="lightboxBackdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo preview"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="lightboxImageWrap" onClick={(e) => e.stopPropagation()}>
+            <ResolvedImage
+              className="lightboxImage"
+              url={lightbox}
+              alt="Defect photo preview"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
