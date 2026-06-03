@@ -30,12 +30,16 @@ export function syncDefectGroupsToQuantity(
   return [emptyDefectGroup(fill, qty)];
 }
 
-export function linesToDefectGroups(lines: DefectLine[]): DefectGroupRowState[] {
+export function linesToDefectGroups(
+  lines: DefectLine[],
+  defaultReason?: string,
+): DefectGroupRowState[] {
   const order: string[] = [];
   const groups = new Map<string, DefectGroupRowState>();
+  const fill = defaultReason?.trim() || DEFECT_REASONS[0];
 
   for (const line of lines) {
-    const reason = line.defect_reason.trim() || DEFECT_REASONS[0];
+    const reason = line.defect_reason.trim() || fill;
     let group = groups.get(reason);
     if (!group) {
       group = { defect_reason: reason, quantity: 0, photos: [] };
@@ -79,7 +83,8 @@ function parseDefectReasonSummary(summary: string): DefectGroupRowState[] {
 
 export function recordToDefectGroups(record: MovementRecord): DefectGroupRowState[] {
   if (record.defect_lines?.length) {
-    return linesToDefectGroups(record.defect_lines);
+    const fallback = normalizeDefectLabel(record.defect_reason) || DEFECT_REASONS[0];
+    return linesToDefectGroups(record.defect_lines, fallback);
   }
   const qty = record.quantity_pcs;
   const summary = record.defect_reason?.trim();

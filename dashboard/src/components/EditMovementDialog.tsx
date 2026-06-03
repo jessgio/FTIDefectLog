@@ -185,7 +185,8 @@ export function EditMovementDialog({
           Edit entry
         </h2>
         <p className="formHint">
-          Saving reverses the old entry on inventory, then applies the updated values.
+          Saving reverses the old entry on inventory, then applies the updated values. If stock was
+          out of sync with history, the system rebuilds this product&apos;s lots automatically.
         </p>
 
         {saveError ? (
