@@ -1,6 +1,7 @@
 import { uploadPhotosForDefectLines } from "../lib/storage";
 import { getSupabase } from "../lib/supabase";
 import type { SkuEntry } from "../skuList";
+import { parseIsoDateOnly } from "../expiry";
 import type { DefectLine, MovementPayload, MovementRecord } from "../types";
 
 type DbMovement = {
@@ -33,8 +34,7 @@ type DbProduct = {
 };
 
 function formatExpiry(iso: string | null): string {
-  if (!iso) return "";
-  return iso.slice(0, 10);
+  return parseIsoDateOnly(iso);
 }
 
 function toMovementRecord(row: DbMovement): MovementRecord {

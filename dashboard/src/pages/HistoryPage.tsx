@@ -1,6 +1,11 @@
 import React from "react";
 import { DEFECT_REASONS } from "../defectReasons";
-import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
+import {
+  formatExpiryDisplay,
+  isNoExpiry,
+  normalizeExpiryValue,
+  toDateInputValue,
+} from "../expiry";
 import { formatInt } from "../format";
 import { AttachPhotosDialog } from "../components/AttachPhotosDialog";
 import { DefectGroupList } from "../components/DefectGroupList";
@@ -46,6 +51,7 @@ export function HistoryPage(): React.ReactElement {
   const [attachingPhotos, setAttachingPhotos] = React.useState<MovementRecord | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
   const skuLookup = useSkuLookup(true);
 
   const load = React.useCallback(async () => {
@@ -110,6 +116,12 @@ export function HistoryPage(): React.ReactElement {
           </button>
         </div>
       </header>
+
+      {saveError ? (
+        <div className="card error">
+          <div className="mono">{saveError}</div>
+        </div>
+      ) : null}
 
       {message ? (
         <div className="card">
@@ -237,15 +249,20 @@ export function HistoryPage(): React.ReactElement {
 
       {editing ? (
         <EditMovementDialog
+          key={editing.movement_id}
           record={editing}
           busy={busy}
           onClose={() => setEditing(null)}
           onSaved={async (msg) => {
+            setSaveError(null);
             setMessage(msg);
             setEditing(null);
             await load();
           }}
-          onError={(msg) => setMessage(msg)}
+          onError={(msg) => {
+            setSaveError(msg);
+            setMessage(null);
+          }}
           setBusy={setBusy}
         />
       ) : null}
@@ -274,11 +291,9 @@ function EditMovementDialog({
   const [loggedBy, setLoggedBy] = React.useState(record.logged_by);
   const [productName, setProductName] = React.useState(record.product_name);
   const [sku, setSku] = React.useState(record.sku ?? "");
-  const [batchCode, setBatchCode] = React.useState(record.batch_code);
-  const [expiryDate, setExpiryDate] = React.useState(
-    isNoExpiry(record.expiry_date) ? "" : record.expiry_date,
-  );
-  const [noExpiry, setNoExpiry] = React.useState(isNoExpiry(record.expiry_date));
+  const [batchCode, setBatchCode] = React.useState(() => record.batch_code ?? "");
+  const [expiryDate, setExpiryDate] = React.useState(() => toDateInputValue(record.expiry_date));
+  const [noExpiry, setNoExpiry] = React.useState(() => isNoExpiry(record.expiry_date));
   const [quantity, setQuantity] = React.useState(String(record.quantity_pcs));
   const [disposition, setDisposition] = React.useState(record.disposition || DISPOSITIONS[0]);
   const [defectReason, setDefectReason] = React.useState(record.defect_reason || DEFECT_REASONS[0]);
@@ -292,10 +307,26 @@ function EditMovementDialog({
   const [defectGroups, setDefectGroups] = React.useState<DefectGroupRowState[]>(() =>
     recordToDefectGroups(record),
   );
+  const [saveError, setSaveError] = React.useState<string | null>(null);
   const skuLookup = useSkuLookup(true);
 
   const qty = Number(quantity);
   const qtyValid = Number.isFinite(qty) && qty > 0;
+
+  const recordExpiry = isNoExpiry(record.expiry_date)
+    ? ""
+    : normalizeExpiryValue(record.expiry_date);
+
+  function isExpiryOnlyChange(nextExpiry: string, nextNoExpiry: boolean): boolean {
+    const next = nextNoExpiry ? "" : normalizeExpiryValue(nextExpiry);
+    return (
+      direction === record.direction &&
+      productName.trim() === record.product_name.trim() &&
+      batchCode.trim() === record.batch_code.trim() &&
+      qty === record.quantity_pcs &&
+      next !== recordExpiry
+    );
+  }
 
   React.useEffect(() => {
     if (direction !== "inbound" || !qtyValid) return;
@@ -304,16 +335,23 @@ function EditMovementDialog({
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
+    setSaveError(null);
     if (!loggedBy.trim() || !productName.trim() || !batchCode.trim()) {
-      onError("Please fill all required fields.");
+      const msg = "Please fill all required fields.";
+      setSaveError(msg);
+      onError(msg);
       return;
     }
     if (!noExpiry && !expiryDate.trim()) {
-      onError("Enter an expiry date, or check “No expiry”.");
+      const msg = "Enter an expiry date, or check “No expiry”.";
+      setSaveError(msg);
+      onError(msg);
       return;
     }
     if (!qtyValid) {
-      onError("Quantity must be positive.");
+      const msg = "Quantity must be positive.";
+      setSaveError(msg);
+      onError(msg);
       return;
     }
     const payload = {
@@ -335,10 +373,16 @@ function EditMovementDialog({
     if (direction === "inbound") {
       const defectErr = validateDefectGroups(defectGroups, qty);
       if (defectErr) {
+        setSaveError(defectErr);
         onError(defectErr);
         return;
       }
-      payload.defect_lines = defectGroupsToLines(defectGroups);
+      const expiryOnly = isExpiryOnlyChange(expiryDate, noExpiry);
+      if (expiryOnly && record.defect_lines?.length) {
+        payload.defect_lines = record.defect_lines;
+      } else {
+        payload.defect_lines = defectGroupsToLines(defectGroups);
+      }
     } else {
       payload.disposition = disposition;
       if (defectReason.trim()) payload.defect_reason = defectReason.trim();
@@ -349,7 +393,9 @@ function EditMovementDialog({
       await updateMovement(record.movement_id, payload);
       await onSaved("Entry updated and inventory adjusted.");
     } catch (err: unknown) {
-      onError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      setSaveError(msg);
+      onError(msg);
     } finally {
       setBusy(false);
     }
@@ -370,6 +416,12 @@ function EditMovementDialog({
         <p className="formHint">
           Saving reverses the old entry on inventory, then applies the updated values.
         </p>
+
+        {saveError ? (
+          <div className="card error">
+            <div className="mono">{saveError}</div>
+          </div>
+        ) : null}
 
         <form onSubmit={onSubmit}>
           <div className="formGrid">
@@ -447,7 +499,11 @@ function EditMovementDialog({
                 className="fieldInput mono"
                 type="date"
                 value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setExpiryDate(v);
+                  if (v) setNoExpiry(false);
+                }}
                 disabled={noExpiry}
                 required={!noExpiry}
               />

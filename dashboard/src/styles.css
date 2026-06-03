@@ -339,6 +339,10 @@ section.card + section.card {
   white-space: nowrap;
 }
 
+.defectMetricsCard .cardTitle {
+  margin-bottom: 4px;
+}
+
 .categoryMetricsCard .cardTitle {
   margin-bottom: 4px;
 }
@@ -916,6 +920,101 @@ section.card + section.card {
 
 .tableAggregate {
   min-width: 860px;
+}
+
+.tableDefectType {
+  min-width: 520px;
+}
+
+.defectExpandCol {
+  width: 36px;
+  padding-left: 8px !important;
+  padding-right: 4px !important;
+}
+
+.defectExpandBtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+}
+.defectExpandBtn:hover {
+  color: var(--text);
+  background: var(--surface-raised);
+}
+
+.defectTypeRow {
+  cursor: pointer;
+}
+.defectTypeRow:hover td {
+  background: var(--surface-raised);
+}
+.defectTypeRow--open td {
+  background: var(--surface-raised);
+  border-bottom-color: transparent;
+}
+
+.defectTypeLink {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 650;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.defectTypeLink:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
+.defectProductSubrow td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  background: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+  border-top: 0;
+}
+.defectProductSubcell {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding-left: 8px;
+}
+.defectProductSubmeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.defectProductSku {
+  font-size: 12px;
+  color: var(--muted);
+}
+.defectProductSubqty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.defectProductSubqtyLabel {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.defectProductSublots {
+  margin-top: 0;
+  font-size: 11px;
 }
 
 .formActions {

@@ -7,7 +7,12 @@ import {
   validateDefectGroups,
   type DefectGroupRowState,
 } from "../defectForm";
-import { formatExpiryDisplay, isNoExpiry, normalizeExpiryValue } from "../expiry";
+import {
+  formatExpiryDisplay,
+  isNoExpiry,
+  normalizeExpiryValue,
+  toDateInputValue,
+} from "../expiry";
 import { ProductPicker } from "../components/ProductPicker";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { formatPriceField, type SkuEntry } from "../skuList";
@@ -153,7 +158,7 @@ export function MovementsPage(): React.ReactElement {
       product_name: row.product_name,
       sku: row.sku ?? catalog?.sku ?? "",
       batch_code: row.batch_code,
-      expiry_date: noExp ? "" : row.expiry_date,
+      expiry_date: noExp ? "" : toDateInputValue(row.expiry_date),
       rsp_per_unit:
         row.rsp_per_unit != null
           ? String(row.rsp_per_unit)
@@ -348,7 +353,7 @@ export function MovementsPage(): React.ReactElement {
             <input
               className="fieldInput mono"
               value={form.batch_code}
-              onChange={(e) => patch({ batch_code: e.target.value })}
+              onChange={(e) => patch({ batch_code: e.target.value, lot_key: "" })}
               required
             />
           </label>
@@ -359,7 +364,7 @@ export function MovementsPage(): React.ReactElement {
               className="fieldInput mono"
               type="date"
               value={form.expiry_date}
-              onChange={(e) => patch({ expiry_date: e.target.value })}
+              onChange={(e) => patch({ expiry_date: e.target.value, lot_key: "" })}
               disabled={noExpiry}
               required={!noExpiry}
             />

@@ -1,3 +1,10 @@
+/** Extract YYYY-MM-DD from a Postgres date or ISO timestamp without timezone shift. */
+export function parseIsoDateOnly(value: string | null | undefined): string {
+  if (value == null || value === "") return "";
+  const m = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : "";
+}
+
 /** Canonical empty expiry for tools / non-dated products */
 export function normalizeExpiryValue(value: string | undefined | null): string {
   const v = String(value ?? "").trim();
@@ -15,6 +22,12 @@ export function isNoExpiry(value: string | undefined | null): boolean {
 
 export function formatExpiryDisplay(value: string | undefined | null): string {
   return isNoExpiry(value) ? "N/A" : normalizeExpiryValue(value);
+}
+
+/** Value for `<input type="date">` (must be YYYY-MM-DD or empty). */
+export function toDateInputValue(value: string | undefined | null): string {
+  const iso = parseIsoDateOnly(value);
+  return iso || "";
 }
 
 export function compareExpiryAsc(a: string | undefined, b: string | undefined): number {

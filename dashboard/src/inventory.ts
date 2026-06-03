@@ -1,3 +1,4 @@
+import { parseIsoDateOnly } from "./expiry";
 import { getSupabase } from "./lib/supabase";
 import type { RejectRow } from "./types";
 
@@ -16,8 +17,7 @@ type InventoryLotRow = {
 };
 
 function formatExpiry(iso: string | null): string {
-  if (!iso) return "";
-  return iso.slice(0, 10);
+  return parseIsoDateOnly(iso);
 }
 
 function toRejectRow(row: InventoryLotRow): RejectRow | null {

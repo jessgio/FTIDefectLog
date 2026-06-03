@@ -1,6 +1,8 @@
 import React from "react";
 import { aggregateRows, type AggregateGroupBy } from "../aggregate";
+import { aggregateByDefectType, computePcsByDefectReason } from "../defectAggregate";
 import { AggregateTable } from "../components/AggregateTable";
+import { DefectTypeTable } from "../components/DefectTypeTable";
 import { compareExpiryAsc, formatExpiryDisplay } from "../expiry";
 import { formatCurrencyIdr, formatInt, valueOrDash } from "../format";
 import { computeMetrics } from "../metrics";
@@ -14,7 +16,7 @@ import { listMovements } from "../movements";
 import { dashboardCopy } from "../copy/dashboard";
 import type { MovementRecord, RejectRow } from "../types";
 
-type TableView = "lot" | "product" | "sku";
+type TableView = "lot" | "product" | "sku" | "defect";
 
 function dashCurrency(v: number | null): string {
   return valueOrDash(v, formatCurrencyIdr);
@@ -223,6 +225,16 @@ export function DashboardPage(): React.ReactElement {
     [categoryRowsCogs],
   );
 
+  const pcsByDefectReason = React.useMemo(() => {
+    if (!filtered) return null;
+    return computePcsByDefectReason(filtered);
+  }, [filtered]);
+
+  const defectTypeRows = React.useMemo(() => {
+    if (!pcsByDefectReason) return [];
+    return Object.entries(pcsByDefectReason).sort(([, a], [, b]) => b - a);
+  }, [pcsByDefectReason]);
+
   const aggregateGroupBy: AggregateGroupBy | null =
     tableView === "product" ? "product_name" : tableView === "sku" ? "sku" : null;
 
@@ -230,6 +242,11 @@ export function DashboardPage(): React.ReactElement {
     if (!filtered || !aggregateGroupBy) return null;
     return aggregateRows(filtered, aggregateGroupBy);
   }, [filtered, aggregateGroupBy]);
+
+  const byDefectType = React.useMemo(() => {
+    if (!filtered) return null;
+    return aggregateByDefectType(filtered);
+  }, [filtered]);
 
   return (
     <>
@@ -315,6 +332,28 @@ export function DashboardPage(): React.ReactElement {
             </div>
           </section>
 
+          <section className="card defectMetricsCard">
+            <div className="cardTitle">By defect type</div>
+            {defectTypeRows.length ? (
+              <CategoryMetricBars
+                title="Quantity (pcs)"
+                rows={defectTypeRows}
+                total={metrics.totalPcs}
+                formatValue={formatInt}
+                ariaLabel="Defective stock quantity by defect type"
+              />
+            ) : (
+              <p className="hint">No defective stock in the current filter.</p>
+            )}
+            {defectTypeRows.length > 0 ? (
+              <div className="hint">
+                {formatInt(defectTypeRows.length)} defect type
+                {defectTypeRows.length === 1 ? "" : "s"} · use{" "}
+                <span className="mono">By defect type</span> below to see products per type
+              </div>
+            ) : null}
+          </section>
+
           <section className="card">
             <div className="cardTitle">Expiry distribution (pcs)</div>
             <div className="barWrap" role="img" aria-label="Expiry year bars">
@@ -380,7 +419,9 @@ export function DashboardPage(): React.ReactElement {
                   ? "Reject lots (by batch)"
                   : tableView === "product"
                     ? "Aggregate by product"
-                    : "Aggregate by SKU"}
+                    : tableView === "sku"
+                      ? "Aggregate by SKU"
+                      : "By defect type"}
               </div>
               <div className="directionToggle viewToggle" role="group" aria-label="Table view">
                 <button
@@ -404,10 +445,23 @@ export function DashboardPage(): React.ReactElement {
                 >
                   By SKU
                 </button>
+                <button
+                  type="button"
+                  className={tableView === "defect" ? "dirBtn active" : "dirBtn"}
+                  onClick={() => setTableView("defect")}
+                >
+                  By defect type
+                </button>
               </div>
             </div>
 
-            {aggregated && aggregateGroupBy ? (
+            {byDefectType && tableView === "defect" ? (
+              <DefectTypeTable
+                rows={byDefectType}
+                getProductImage={(name, sku) => getProductImage(name, undefined, sku)}
+                onProductClick={openProductDetail}
+              />
+            ) : aggregated && aggregateGroupBy ? (
               <AggregateTable
                 rows={aggregated}
                 groupBy={aggregateGroupBy}
