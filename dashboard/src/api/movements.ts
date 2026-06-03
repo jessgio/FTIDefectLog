@@ -16,6 +16,8 @@ type DbMovement = {
   defect_reason: string | null;
   disposition: string | null;
   notes: string | null;
+  reject_source_type: string | null;
+  reject_source_vendor: string | null;
   rsp_per_unit: number | null;
   cogs_per_unit: number | null;
   defect_lines: DefectLine[] | null;
@@ -51,6 +53,8 @@ function toMovementRecord(row: DbMovement): MovementRecord {
     defect_reason: row.defect_reason ?? undefined,
     disposition: row.disposition ?? undefined,
     notes: row.notes ?? undefined,
+    reject_source_type: row.reject_source_type ?? undefined,
+    reject_source_vendor: row.reject_source_vendor ?? undefined,
     rsp_per_unit: row.rsp_per_unit ?? undefined,
     cogs_per_unit: row.cogs_per_unit ?? undefined,
     defect_lines: row.defect_lines ?? undefined,
@@ -86,6 +90,8 @@ function payloadToRpc(payload: MovementPayload & { id?: string }): Record<string
     defect_reason: payload.defect_reason ?? "",
     disposition: payload.disposition ?? "",
     notes: payload.notes ?? "",
+    reject_source_type: payload.reject_source_type ?? "",
+    reject_source_vendor: payload.reject_source_vendor ?? "",
     rsp_per_unit: payload.rsp_per_unit ?? null,
     cogs_per_unit: payload.cogs_per_unit ?? null,
     defect_lines: payload.defect_lines ?? [],

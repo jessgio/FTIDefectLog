@@ -14,6 +14,8 @@ type InventoryLotRow = {
   cogs_per_unit: number | null;
   source_file: string | null;
   parsed_on: string | null;
+  reject_source_type: string | null;
+  reject_source_vendor: string | null;
 };
 
 function formatExpiry(iso: string | null): string {
@@ -32,6 +34,8 @@ function toRejectRow(row: InventoryLotRow): RejectRow | null {
     product_name,
     sku: row.sku?.trim() || undefined,
     defect_reason: row.defect_reason?.trim() || undefined,
+    reject_source_type: row.reject_source_type?.trim() || undefined,
+    reject_source_vendor: row.reject_source_vendor?.trim() || undefined,
     batch_code,
     expiry_date: formatExpiry(row.expiry_date),
     quantity_pcs,
@@ -45,7 +49,7 @@ export async function fetchInventoryLots(): Promise<RejectRow[]> {
   const { data, error } = await supabase
     .from("inventory_lots")
     .select(
-      "id, product_name, sku, defect_reason, batch_code, expiry_date, quantity_pcs, rsp_per_unit, cogs_per_unit, source_file, parsed_on",
+      "id, product_name, sku, defect_reason, reject_source_type, reject_source_vendor, batch_code, expiry_date, quantity_pcs, rsp_per_unit, cogs_per_unit, source_file, parsed_on",
     )
     .gt("quantity_pcs", 0)
     .order("expiry_date", { ascending: true, nullsFirst: false });

@@ -14,6 +14,7 @@ import { ProductDetailModal } from "../components/ProductDetailModal";
 import { fetchInventoryLots } from "../inventory";
 import { listMovements } from "../movements";
 import { dashboardCopy } from "../copy/dashboard";
+import { formatRejectSource } from "../rejectSources";
 import type { MovementRecord, RejectRow } from "../types";
 
 type TableView = "lot" | "product" | "sku" | "defect";
@@ -30,6 +31,7 @@ type SortKey =
   | "product_name"
   | "sku"
   | "defect_reason"
+  | "reject_source_vendor"
   | "batch_code"
   | "expiry_date"
   | "quantity_pcs"
@@ -58,6 +60,8 @@ function getCellValue(r: RejectRow, key: SortKey): string | number | undefined {
       return r.sku;
     case "defect_reason":
       return r.defect_reason;
+    case "reject_source_vendor":
+      return formatRejectSource(r.reject_source_type, r.reject_source_vendor);
     case "batch_code":
       return r.batch_code;
     case "expiry_date":
@@ -149,7 +153,9 @@ export function DashboardPage(): React.ReactElement {
             r.product_name.toLowerCase().includes(q) ||
             (r.sku ?? "").toLowerCase().includes(q) ||
             (r.batch_code ?? "").toLowerCase().includes(q) ||
-            (r.defect_reason ?? "").toLowerCase().includes(q)
+            (r.defect_reason ?? "").toLowerCase().includes(q) ||
+            (r.reject_source_type ?? "").toLowerCase().includes(q) ||
+            (r.reject_source_vendor ?? "").toLowerCase().includes(q)
           );
         });
 
@@ -158,6 +164,14 @@ export function DashboardPage(): React.ReactElement {
       if (!matchesTextFilter(r.product_name, filters.product_name ?? "")) return false;
       if (!matchesTextFilter(r.sku ?? "", filters.sku ?? "")) return false;
       if (!matchesTextFilter(r.defect_reason ?? "", filters.defect_reason ?? "")) return false;
+      if (
+        !matchesTextFilter(
+          formatRejectSource(r.reject_source_type, r.reject_source_vendor),
+          filters.reject_source_vendor ?? "",
+        )
+      ) {
+        return false;
+      }
       if (!matchesTextFilter(r.batch_code, filters.batch_code ?? "")) return false;
       if (!matchesTextFilter(r.expiry_date, filters.expiry_date ?? "")) return false;
 
@@ -528,6 +542,26 @@ export function DashboardPage(): React.ReactElement {
                         className="thButton"
                         onClick={() =>
                           setSort((s) => ({
+                            key: "reject_source_vendor",
+                            dir:
+                              s.key === "reject_source_vendor" && s.dir === "asc" ? "desc" : "asc",
+                          }))
+                        }
+                      >
+                        Return source
+                        {sort.key === "reject_source_vendor"
+                          ? sort.dir === "asc"
+                            ? " ▲"
+                            : " ▼"
+                          : null}
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        type="button"
+                        className="thButton"
+                        onClick={() =>
+                          setSort((s) => ({
                             key: "batch_code",
                             dir: s.key === "batch_code" && s.dir === "asc" ? "desc" : "asc",
                           }))
@@ -631,6 +665,17 @@ export function DashboardPage(): React.ReactElement {
                     </th>
                     <th>
                       <input
+                        className="thFilter"
+                        value={filters.reject_source_vendor ?? ""}
+                        onChange={(e) =>
+                          setFilters((f) => ({ ...f, reject_source_vendor: e.target.value }))
+                        }
+                        placeholder="Channel or vendor…"
+                        aria-label="Filter return source"
+                      />
+                    </th>
+                    <th>
+                      <input
                         className="thFilter mono"
                         value={filters.batch_code ?? ""}
                         onChange={(e) => setFilters((f) => ({ ...f, batch_code: e.target.value }))}
@@ -702,6 +747,9 @@ export function DashboardPage(): React.ReactElement {
                       </td>
                       <td className="mono">{r.sku ?? "—"}</td>
                       <td>{r.defect_reason ?? "—"}</td>
+                      <td>
+                        {formatRejectSource(r.reject_source_type, r.reject_source_vendor) || "—"}
+                      </td>
                       <td className="mono">{r.batch_code}</td>
                       <td className="mono">{formatExpiryDisplay(r.expiry_date)}</td>
                       <td className="num">{formatInt(r.quantity_pcs)}</td>

@@ -14,6 +14,8 @@ import {
   toDateInputValue,
 } from "../expiry";
 import { ProductPicker } from "../components/ProductPicker";
+import { RejectSourceFields } from "../components/RejectSourceFields";
+import { REJECT_SOURCE_TYPES } from "../rejectSources";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { formatPriceField, type SkuEntry } from "../skuList";
 import { fetchInventoryLots } from "../inventory";
@@ -40,6 +42,8 @@ type FormState = {
   expiry_date: string;
   quantity_pcs: string;
   defect_reason: string;
+  reject_source_type: string;
+  reject_source_vendor: string;
   disposition: string;
   notes: string;
   rsp_per_unit: string;
@@ -56,6 +60,8 @@ const emptyForm = (direction: MovementDirection = "inbound"): FormState => ({
   expiry_date: "",
   quantity_pcs: "",
   defect_reason: DEFECT_REASONS[0],
+  reject_source_type: REJECT_SOURCE_TYPES[0],
+  reject_source_vendor: "",
   disposition: DISPOSITIONS[0],
   notes: "",
   rsp_per_unit: "",
@@ -168,6 +174,8 @@ export function MovementsPage(): React.ReactElement {
           ? String(row.cogs_per_unit)
           : formatPriceField(catalog?.cogs_per_unit),
       defect_reason: row.defect_reason || DEFECT_REASONS[0],
+      reject_source_type: row.reject_source_type || REJECT_SOURCE_TYPES[0],
+      reject_source_vendor: row.reject_source_vendor ?? "",
     });
   }
 
@@ -209,6 +217,11 @@ export function MovementsPage(): React.ReactElement {
     };
 
     if (form.direction === "inbound") {
+      if (!form.reject_source_type.trim()) {
+        setStatus("error");
+        setMessage("Select where the rejects came from (return channel).");
+        return;
+      }
       const defectErr = validateDefectGroups(defectGroups, qty);
       if (defectErr) {
         setStatus("error");
@@ -216,6 +229,9 @@ export function MovementsPage(): React.ReactElement {
         return;
       }
       payload.defect_lines = defectGroupsToLines(defectGroups);
+      payload.reject_source_type = form.reject_source_type.trim();
+      const vendor = form.reject_source_vendor.trim();
+      if (vendor) payload.reject_source_vendor = vendor;
     } else {
       payload.disposition = form.disposition;
       if (form.defect_reason.trim()) payload.defect_reason = form.defect_reason.trim();
@@ -397,6 +413,15 @@ export function MovementsPage(): React.ReactElement {
               required
             />
           </label>
+
+          {form.direction === "inbound" ? (
+            <RejectSourceFields
+              sourceType={form.reject_source_type}
+              sourceVendor={form.reject_source_vendor}
+              onSourceTypeChange={(reject_source_type) => patch({ reject_source_type })}
+              onSourceVendorChange={(reject_source_vendor) => patch({ reject_source_vendor })}
+            />
+          ) : null}
 
           {form.direction === "outbound" ? (
             <label className="field fieldWide">

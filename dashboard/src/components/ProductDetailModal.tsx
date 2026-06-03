@@ -1,6 +1,7 @@
 import React from "react";
 import { formatExpiryDisplay } from "../expiry";
 import { formatCurrencyIdr, formatInt } from "../format";
+import { formatRejectSource } from "../rejectSources";
 import {
   buildDefectEvidence,
   filterLotsForProduct,
@@ -137,6 +138,7 @@ export function ProductDetailModal({
                 <thead>
                   <tr>
                     <th>Defect</th>
+                    <th>Return source</th>
                     <th>Batch</th>
                     <th>Expiry</th>
                     <th className="num">Qty</th>
@@ -147,6 +149,9 @@ export function ProductDetailModal({
                   {productLots.map((r, i) => (
                     <tr key={`${r.batch_code}-${r.expiry_date}-${i}`}>
                       <td>{r.defect_reason ?? "—"}</td>
+                      <td>
+                        {formatRejectSource(r.reject_source_type, r.reject_source_vendor) || "—"}
+                      </td>
                       <td className="mono">{r.batch_code}</td>
                       <td className="mono">{formatExpiryDisplay(r.expiry_date)}</td>
                       <td className="num">{formatInt(r.quantity_pcs)}</td>

@@ -371,49 +371,40 @@ section.card + section.card {
   margin-top: 0;
   gap: 7px;
 }
-/* Metric bars: label overlays the bar track so long names stay readable */
-.barRowMetricLabeled {
-  grid-template-columns: 1fr minmax(56px, auto);
-  gap: 10px;
-  align-items: stretch;
+/* Metric bars: label column separate from fill for contrast */
+.barRowMetricSplit {
+  grid-template-columns: minmax(7.5rem, 38%) 1fr minmax(3.25rem, auto);
+  gap: 10px 12px;
+  align-items: center;
 }
-.barMetricTrack {
-  position: relative;
-  min-height: 28px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--surface-2);
-  border: 1px solid var(--border-soft);
-}
-.barMetricTrack .barFill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  height: 100%;
-  border-radius: 999px;
-  min-width: 0;
-}
-.barMetricTrack .barLabel {
-  position: relative;
-  z-index: 1;
-  display: block;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.3;
+.barLabelMetric {
   color: var(--text);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.35;
   white-space: normal;
   word-break: break-word;
-  text-shadow:
-    0 0 8px var(--surface),
-    0 0 12px var(--surface),
-    0 1px 2px color-mix(in srgb, var(--surface) 85%, transparent);
 }
-.barRowMetricLabeled .barValue {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  font-size: 12px;
-  padding-left: 2px;
+.barRowMetricSplit .bar {
+  height: 10px;
+}
+.barRowMetricSplit .barValue {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+.defectMetricsCard .barRowMetricSplit {
+  grid-template-columns: minmax(9.5rem, 34%) 1fr minmax(3.5rem, auto);
+}
+@media (max-width: 520px) {
+  .barRowMetricSplit,
+  .defectMetricsCard .barRowMetricSplit {
+    grid-template-columns: minmax(6.5rem, 42%) 1fr minmax(3rem, auto);
+    gap: 8px 10px;
+  }
+  .barLabelMetric {
+    font-size: 12px;
+  }
 }
 .barLabel {
   color: var(--muted);

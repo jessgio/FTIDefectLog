@@ -7,6 +7,8 @@ import {
   toDateInputValue,
 } from "../expiry";
 import { formatInt } from "../format";
+import { RejectSourceFields } from "../components/RejectSourceFields";
+import { formatRejectSource, REJECT_SOURCE_TYPES } from "../rejectSources";
 import { AttachPhotosDialog } from "../components/AttachPhotosDialog";
 import { DefectGroupList } from "../components/DefectGroupList";
 import { ProductThumb } from "../components/ProductThumb";
@@ -80,6 +82,8 @@ export function HistoryPage(): React.ReactElement {
         (r.sku ?? "").toLowerCase().includes(q) ||
         (r.batch_code ?? "").toLowerCase().includes(q) ||
         (r.logged_by ?? "").toLowerCase().includes(q) ||
+        (r.reject_source_type ?? "").toLowerCase().includes(q) ||
+        (r.reject_source_vendor ?? "").toLowerCase().includes(q) ||
         r.direction.includes(q)
       );
     });
@@ -165,6 +169,7 @@ export function HistoryPage(): React.ReactElement {
                   <th>Expiry</th>
                   <th className="num">Qty</th>
                   <th>Detail</th>
+                  <th>Return source</th>
                   <th>By</th>
                   <th />
                 </tr>
@@ -188,6 +193,11 @@ export function HistoryPage(): React.ReactElement {
                       {r.direction === "inbound"
                         ? r.defect_reason || (r.defect_lines?.length ? "Defect breakdown" : "—")
                         : r.disposition || "—"}
+                    </td>
+                    <td>
+                      {r.direction === "inbound"
+                        ? formatRejectSource(r.reject_source_type, r.reject_source_vendor) || "—"
+                        : "—"}
                     </td>
                     <td>{r.logged_by}</td>
                     <td className="historyActions">
@@ -298,6 +308,12 @@ function EditMovementDialog({
   const [disposition, setDisposition] = React.useState(record.disposition || DISPOSITIONS[0]);
   const [defectReason, setDefectReason] = React.useState(record.defect_reason || DEFECT_REASONS[0]);
   const [notes, setNotes] = React.useState(record.notes ?? "");
+  const [rejectSourceType, setRejectSourceType] = React.useState(
+    record.reject_source_type || REJECT_SOURCE_TYPES[0],
+  );
+  const [rejectSourceVendor, setRejectSourceVendor] = React.useState(
+    record.reject_source_vendor ?? "",
+  );
   const [rspPerUnit, setRspPerUnit] = React.useState(
     record.rsp_per_unit != null ? String(record.rsp_per_unit) : "",
   );
@@ -371,12 +387,21 @@ function EditMovementDialog({
     if (cogsPerUnit.trim() && Number.isFinite(cogs)) payload.cogs_per_unit = cogs;
 
     if (direction === "inbound") {
+      if (!rejectSourceType.trim()) {
+        const msg = "Select where the rejects came from (return channel).";
+        setSaveError(msg);
+        onError(msg);
+        return;
+      }
       const defectErr = validateDefectGroups(defectGroups, qty);
       if (defectErr) {
         setSaveError(defectErr);
         onError(defectErr);
         return;
       }
+      payload.reject_source_type = rejectSourceType.trim();
+      const vendor = rejectSourceVendor.trim();
+      if (vendor) payload.reject_source_vendor = vendor;
       const expiryOnly = isExpiryOnlyChange(expiryDate, noExpiry);
       if (expiryOnly && record.defect_lines?.length) {
         payload.defect_lines = record.defect_lines;
@@ -578,7 +603,14 @@ function EditMovementDialog({
                   />
                 </label>
               </>
-            ) : null}
+            ) : (
+              <RejectSourceFields
+                sourceType={rejectSourceType}
+                sourceVendor={rejectSourceVendor}
+                onSourceTypeChange={setRejectSourceType}
+                onSourceVendorChange={setRejectSourceVendor}
+              />
+            )}
           </div>
 
           {direction === "inbound" && qtyValid ? (

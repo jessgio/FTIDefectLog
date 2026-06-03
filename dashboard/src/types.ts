@@ -9,6 +9,10 @@ export type RejectRow = {
   /** Optional per-lot image URL from inventory sheet (else from SKUList) */
   image_url?: string;
   defect_reason?: string;
+  /** Inbound channel: e-commerce, consignment, B2B, distributor returns */
+  reject_source_type?: string;
+  /** Partner name: Shopee, Watsons, AEON, etc. */
+  reject_source_vendor?: string;
   batch_code: string;
   /** ISO YYYY-MM-DD, or empty for tools / non-dated products */
   expiry_date: string;
@@ -45,6 +49,8 @@ export type MovementPayload = {
   defect_reason?: string;
   disposition?: string;
   notes?: string;
+  reject_source_type?: string;
+  reject_source_vendor?: string;
   rsp_per_unit?: number;
   cogs_per_unit?: number;
 };
@@ -62,6 +68,8 @@ export type MovementRecord = {
   defect_reason?: string;
   disposition?: string;
   notes?: string;
+  reject_source_type?: string;
+  reject_source_vendor?: string;
   rsp_per_unit?: number;
   cogs_per_unit?: number;
   defect_lines?: DefectLine[];
