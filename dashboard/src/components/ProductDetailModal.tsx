@@ -22,7 +22,9 @@ type Props = {
   onClose: () => void;
   onEditMovement?: (record: MovementRecord) => void;
   onAttachPhotos?: (record: MovementRecord) => void;
+  onReconcileInventory?: (productName: string) => Promise<void>;
   movementActionsDisabled?: boolean;
+  reconcileBusy?: boolean;
 };
 
 function formatWhen(iso: string): string {
@@ -89,7 +91,9 @@ export function ProductDetailModal({
   onClose,
   onEditMovement,
   onAttachPhotos,
+  onReconcileInventory,
   movementActionsDisabled = false,
+  reconcileBusy = false,
 }: Props): React.ReactElement {
   const canManageMovements = Boolean(onEditMovement || onAttachPhotos);
   const productLots = React.useMemo(
@@ -138,7 +142,28 @@ export function ProductDetailModal({
         </div>
 
         <section className="productDetailSection">
-          <h3 className="productDetailSectionTitle">Current stock lots</h3>
+          <div className="productDetailSectionHead">
+            <h3 className="productDetailSectionTitle">Current stock lots</h3>
+            {onReconcileInventory ? (
+              <button
+                type="button"
+                className="linkButton"
+                disabled={movementActionsDisabled || reconcileBusy}
+                onClick={async () => {
+                  if (
+                    !window.confirm(productDetailCopy.reconcileConfirm)
+                  ) {
+                    return;
+                  }
+                  await onReconcileInventory(productName);
+                }}
+              >
+                {reconcileBusy
+                  ? productDetailCopy.reconcileBusy
+                  : productDetailCopy.reconcileAction}
+              </button>
+            ) : null}
+          </div>
           {productLots.length ? (
             <div className="tableWrap">
               <table className="table tableCompact">

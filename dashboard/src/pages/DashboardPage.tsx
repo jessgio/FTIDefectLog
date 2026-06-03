@@ -15,7 +15,7 @@ import { EditMovementDialog } from "../components/EditMovementDialog";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { fetchInventoryLots } from "../inventory";
 import { enrichLotsFromMovements } from "../inventoryEnrich";
-import { listMovements } from "../movements";
+import { listMovements, reconcileProductInventory } from "../movements";
 import { dashboardCopy } from "../copy/dashboard";
 import { formatRejectSource } from "../rejectSources";
 import type { MovementRecord, RejectRow } from "../types";
@@ -830,7 +830,23 @@ export function DashboardPage(): React.ReactElement {
           onClose={() => setDetailProduct(null)}
           onEditMovement={setEditingMovement}
           onAttachPhotos={setAttachingPhotos}
+          onReconcileInventory={async (name) => {
+            setMovementBusy(true);
+            setMovementMessage(null);
+            try {
+              const result = await reconcileProductInventory(name);
+              await refreshDashboardData();
+              setMovementMessage(
+                `Stock recalculated from history (${result.movements_replayed} entries replayed).`,
+              );
+            } catch (e: unknown) {
+              setMovementMessage(e instanceof Error ? e.message : String(e));
+            } finally {
+              setMovementBusy(false);
+            }
+          }}
           movementActionsDisabled={movementBusy}
+          reconcileBusy={movementBusy}
         />
       ) : null}
 

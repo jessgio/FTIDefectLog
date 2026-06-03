@@ -163,6 +163,29 @@ export async function deleteMovement(movementId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export type ReconcileProductResult = {
+  movements_replayed: number;
+  zero_lots_removed: number;
+};
+
+export async function reconcileProductInventory(
+  productName: string,
+): Promise<ReconcileProductResult> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc("reconcile_product_inventory", {
+    p_product: productName.trim(),
+  });
+  if (error) throw new Error(error.message);
+  const result = data as {
+    movements_replayed?: number;
+    zero_lots_removed?: number;
+  } | null;
+  return {
+    movements_replayed: result?.movements_replayed ?? 0,
+    zero_lots_removed: result?.zero_lots_removed ?? 0,
+  };
+}
+
 export async function patchMovementPhotos(
   movementId: string,
   defect_lines: NonNullable<MovementPayload["defect_lines"]>,

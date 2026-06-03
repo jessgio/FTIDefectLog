@@ -6,6 +6,7 @@ export {
   getMovementsScriptUrl,
   listMovements,
   patchMovementPhotos,
+  reconcileProductInventory,
   submitMovement,
   updateMovement,
 } from "./api/movements";

@@ -1321,6 +1321,19 @@ section.card + section.card {
   border-top: 1px solid var(--border-soft);
 }
 
+.productDetailSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.productDetailSectionHead .productDetailSectionTitle {
+  margin: 0;
+}
+
 .productDetailSectionTitle {
   margin: 0 0 8px;
   font-size: 14px;
