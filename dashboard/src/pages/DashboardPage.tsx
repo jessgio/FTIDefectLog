@@ -12,6 +12,7 @@ import { ProductThumb } from "../components/ProductThumb";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { fetchInventoryLots } from "../inventory";
+import { enrichLotsFromMovements } from "../inventoryEnrich";
 import { listMovements } from "../movements";
 import { dashboardCopy } from "../copy/dashboard";
 import { formatRejectSource } from "../rejectSources";
@@ -143,12 +144,17 @@ export function DashboardPage(): React.ReactElement {
     return skuLookup.lookup(detailProduct);
   }, [detailProduct, skuLookup]);
 
-  const filtered = React.useMemo(() => {
+  const displayRows = React.useMemo(() => {
     if (!rows) return null;
+    return enrichLotsFromMovements(rows, movements);
+  }, [rows, movements]);
+
+  const filtered = React.useMemo(() => {
+    if (!displayRows) return null;
     const q = query.trim().toLowerCase();
     const searched = !q
-      ? rows
-      : rows.filter((r) => {
+      ? displayRows
+      : displayRows.filter((r) => {
           return (
             r.product_name.toLowerCase().includes(q) ||
             (r.sku ?? "").toLowerCase().includes(q) ||
@@ -207,7 +213,7 @@ export function DashboardPage(): React.ReactElement {
     });
 
     return sorted;
-  }, [rows, query, filters, sort]);
+  }, [displayRows, query, filters, sort]);
   
 
   const metrics = React.useMemo(() => {
@@ -795,10 +801,10 @@ export function DashboardPage(): React.ReactElement {
         </>
       )}
 
-      {detailProduct && rows ? (
+      {detailProduct && displayRows ? (
         <ProductDetailModal
           productName={detailProduct}
-          lots={rows}
+          lots={displayRows}
           movements={movements}
           productImageUrl={getProductImage(detailProduct, undefined, detailSku)}
           sku={detailSku}
