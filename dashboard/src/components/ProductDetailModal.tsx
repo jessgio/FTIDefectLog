@@ -20,6 +20,9 @@ type Props = {
   productImageUrl?: string;
   sku?: string;
   onClose: () => void;
+  onEditMovement?: (record: MovementRecord) => void;
+  onAttachPhotos?: (record: MovementRecord) => void;
+  movementActionsDisabled?: boolean;
 };
 
 function formatWhen(iso: string): string {
@@ -84,7 +87,11 @@ export function ProductDetailModal({
   productImageUrl,
   sku,
   onClose,
+  onEditMovement,
+  onAttachPhotos,
+  movementActionsDisabled = false,
 }: Props): React.ReactElement {
+  const canManageMovements = Boolean(onEditMovement || onAttachPhotos);
   const productLots = React.useMemo(
     () => filterLotsForProduct(lots, productName),
     [lots, productName],
@@ -185,21 +192,52 @@ export function ProductDetailModal({
         {productMovements.length ? (
           <section className="productDetailSection">
             <h3 className="productDetailSectionTitle">Recent movements</h3>
+            {canManageMovements ? (
+              <p className="hint productDetailHint">
+                Edit an entry to update stock, defects, or return source — same as History.
+              </p>
+            ) : null}
             <ul className="movementMiniList">
-              {productMovements.slice(0, 8).map((m) => (
-                <li key={m.movement_id}>
-                  <span className="mono">{formatWhen(m.timestamp_utc)}</span>
-                  {" · "}
-                  {m.direction === "inbound" ? "Inbound" : "Outbound"}
-                  {" · "}
-                  {formatInt(m.quantity_pcs)} pcs
-                  {m.batch_code ? (
-                    <>
-                      {" · batch "}
-                      <span className="mono">{m.batch_code}</span>
-                    </>
+              {productMovements.slice(0, 12).map((m) => (
+                <li key={m.movement_id} className="productDetailMovementRow">
+                  <div className="productDetailMovementMeta">
+                    <span className="mono">{formatWhen(m.timestamp_utc)}</span>
+                    {" · "}
+                    {m.direction === "inbound" ? "Inbound" : "Outbound"}
+                    {" · "}
+                    {formatInt(m.quantity_pcs)} pcs
+                    {m.batch_code ? (
+                      <>
+                        {" · batch "}
+                        <span className="mono">{m.batch_code}</span>
+                      </>
+                    ) : null}
+                    {m.logged_by ? <> · {m.logged_by}</> : null}
+                  </div>
+                  {canManageMovements ? (
+                    <span className="historyActions productDetailMovementActions">
+                      {m.direction === "inbound" && onAttachPhotos ? (
+                        <button
+                          type="button"
+                          className="linkButton"
+                          disabled={movementActionsDisabled}
+                          onClick={() => onAttachPhotos(m)}
+                        >
+                          Photos
+                        </button>
+                      ) : null}
+                      {onEditMovement ? (
+                        <button
+                          type="button"
+                          className="linkButton"
+                          disabled={movementActionsDisabled}
+                          onClick={() => onEditMovement(m)}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                    </span>
                   ) : null}
-                  {m.logged_by ? <> · {m.logged_by}</> : null}
                 </li>
               ))}
             </ul>

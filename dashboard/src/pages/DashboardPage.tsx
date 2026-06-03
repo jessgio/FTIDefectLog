@@ -10,6 +10,8 @@ import { CategoryMetricBars } from "../components/CategoryMetricBars";
 import { computeCogsByCategory, computePcsByCategory, skuListHasCategories } from "../skuList";
 import { ProductThumb } from "../components/ProductThumb";
 import { useSkuLookup } from "../hooks/useSkuLookup";
+import { AttachPhotosDialog } from "../components/AttachPhotosDialog";
+import { EditMovementDialog } from "../components/EditMovementDialog";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { fetchInventoryLots } from "../inventory";
 import { enrichLotsFromMovements } from "../inventoryEnrich";
@@ -98,6 +100,10 @@ export function DashboardPage(): React.ReactElement {
   const skuLookup = useSkuLookup(true);
   const [movements, setMovements] = React.useState<MovementRecord[]>([]);
   const [detailProduct, setDetailProduct] = React.useState<string | null>(null);
+  const [editingMovement, setEditingMovement] = React.useState<MovementRecord | null>(null);
+  const [attachingPhotos, setAttachingPhotos] = React.useState<MovementRecord | null>(null);
+  const [movementBusy, setMovementBusy] = React.useState(false);
+  const [movementMessage, setMovementMessage] = React.useState<string | null>(null);
 
   const getProductImage = React.useCallback(
     (productName: string, rowImage?: string, sku?: string) =>
@@ -137,7 +143,14 @@ export function DashboardPage(): React.ReactElement {
 
   function openProductDetail(productName: string): void {
     setDetailProduct(productName);
+    setMovementMessage(null);
   }
+
+  const refreshDashboardData = React.useCallback(async () => {
+    const [lots, mov] = await Promise.all([fetchInventoryLots(), listMovements()]);
+    setRows(lots.sort(sortByExpiryAsc));
+    setMovements(mov);
+  }, []);
 
   const detailSku = React.useMemo(() => {
     if (!detailProduct) return undefined;
@@ -801,6 +814,12 @@ export function DashboardPage(): React.ReactElement {
         </>
       )}
 
+      {movementMessage ? (
+        <div className="card">
+          <div className="hint">{movementMessage}</div>
+        </div>
+      ) : null}
+
       {detailProduct && displayRows ? (
         <ProductDetailModal
           productName={detailProduct}
@@ -809,6 +828,40 @@ export function DashboardPage(): React.ReactElement {
           productImageUrl={getProductImage(detailProduct, undefined, detailSku)}
           sku={detailSku}
           onClose={() => setDetailProduct(null)}
+          onEditMovement={setEditingMovement}
+          onAttachPhotos={setAttachingPhotos}
+          movementActionsDisabled={movementBusy}
+        />
+      ) : null}
+
+      {attachingPhotos ? (
+        <AttachPhotosDialog
+          record={attachingPhotos}
+          busy={movementBusy}
+          onClose={() => setAttachingPhotos(null)}
+          onSaved={async (msg) => {
+            setMovementMessage(msg);
+            setAttachingPhotos(null);
+            await refreshDashboardData();
+          }}
+          onError={(msg) => setMovementMessage(msg)}
+          setBusy={setMovementBusy}
+        />
+      ) : null}
+
+      {editingMovement ? (
+        <EditMovementDialog
+          key={editingMovement.movement_id}
+          record={editingMovement}
+          busy={movementBusy}
+          onClose={() => setEditingMovement(null)}
+          onSaved={async (msg) => {
+            setMovementMessage(msg);
+            setEditingMovement(null);
+            await refreshDashboardData();
+          }}
+          onError={(msg) => setMovementMessage(msg)}
+          setBusy={setMovementBusy}
         />
       ) : null}
 

@@ -1243,6 +1243,10 @@ section.card + section.card {
   animation: fadeIn 0.15s var(--ease);
 }
 
+.modalBackdrop--elevated {
+  z-index: 60;
+}
+
 .modalCard {
   width: min(640px, 100%);
   max-height: min(90vh, 900px);
@@ -1408,6 +1412,21 @@ section.card + section.card {
 }
 .movementMiniList li {
   margin-bottom: 4px;
+}
+
+.productDetailMovementRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.productDetailMovementMeta {
+  flex: 1;
+  min-width: 0;
+}
+.productDetailMovementActions {
+  flex-shrink: 0;
 }
 
 .defectPhotoPicker {

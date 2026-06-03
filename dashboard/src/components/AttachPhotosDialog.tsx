@@ -51,7 +51,7 @@ export function AttachPhotosDialog({
   }
 
   return (
-    <div className="modalBackdrop" role="presentation" onClick={onClose}>
+    <div className="modalBackdrop modalBackdrop--elevated" role="presentation" onClick={onClose}>
       <div
         className="modalCard modalCardWide"
         role="dialog"
