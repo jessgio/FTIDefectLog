@@ -27,12 +27,10 @@ export function CategoryMetricBars({
           {rows.map(([label, value]) => {
             const pct = (value / denom) * 100;
             return (
-              <div key={label} className="barRow barRowCategoryCompact">
-                <div className="barLabel" title={label}>
-                  {label}
-                </div>
-                <div className="bar">
-                  <div className="barFill" style={{ width: `${pct}%` }} />
+              <div key={label} className="barRow barRowMetricLabeled">
+                <div className="barMetricTrack" title={label}>
+                  <div className="barFill" style={{ width: `${pct}%` }} aria-hidden />
+                  <span className="barLabel">{label}</span>
                 </div>
                 <div className="barValue">{formatValue(value)}</div>
               </div>
