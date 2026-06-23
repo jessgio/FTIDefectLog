@@ -17,6 +17,7 @@ import { fetchInventoryLots } from "../inventory";
 import { enrichLotsFromMovements } from "../inventoryEnrich";
 import { listMovements, reconcileProductInventory } from "../movements";
 import { dashboardCopy } from "../copy/dashboard";
+import { downloadInventoryExcel } from "../exportInventory";
 import { formatRejectSource } from "../rejectSources";
 import type { MovementRecord, RejectRow } from "../types";
 
@@ -296,6 +297,17 @@ export function DashboardPage(): React.ReactElement {
             placeholder="Search product / SKU / batch / reason"
             aria-label="Search"
           />
+          <button
+            type="button"
+            className="secondaryBtn"
+            onClick={() => {
+              if (filtered?.length) void downloadInventoryExcel(filtered);
+            }}
+            disabled={!filtered?.length}
+            aria-label="Export inventory to Excel"
+          >
+            Export Excel
+          </button>
         </div>
       </header>
 
