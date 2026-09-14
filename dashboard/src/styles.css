@@ -1040,6 +1040,51 @@ section.card + section.card {
   margin-top: 18px;
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bulkImportActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 8px;
+}
+
+.bulkImportFileBtn {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.bulkImportFileBtn.disabled {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+}
+
+.bulkImportSummary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 12px 0 8px;
+  font-weight: 650;
+}
+
+.bulkImportSection {
+  margin-top: 14px;
+}
+
+.bulkImportPreview {
+  max-height: min(36vh, 360px);
+  overflow: auto;
+}
+
+.bulkImportErrors {
+  color: var(--error-text);
+  font-size: 13px;
 }
 
 .primaryBtn {

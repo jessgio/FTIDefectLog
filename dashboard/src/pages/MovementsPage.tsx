@@ -1,4 +1,5 @@
 import React from "react";
+import { BulkImportDialog } from "../components/BulkImportDialog";
 import { DefectGroupList } from "../components/DefectGroupList";
 import { DEFECT_REASONS } from "../defectReasons";
 import {
@@ -82,6 +83,7 @@ export function MovementsPage(): React.ReactElement {
   const [noExpiry, setNoExpiry] = React.useState(false);
   const [status, setStatus] = React.useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = React.useState<string | null>(null);
+  const [bulkImportOpen, setBulkImportOpen] = React.useState(false);
 
   React.useEffect(() => {
     fetchInventoryLots()
@@ -179,6 +181,14 @@ export function MovementsPage(): React.ReactElement {
     });
   }
 
+  function reloadStock(): void {
+    fetchInventoryLots()
+      .then(setStock)
+      .catch((e: unknown) => {
+        setStockError(e instanceof Error ? e.message : String(e));
+      });
+  }
+
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setStatus("submitting");
@@ -253,9 +263,7 @@ export function MovementsPage(): React.ReactElement {
       setForm(emptyForm(form.direction));
       setDefectGroups([]);
       setNoExpiry(false);
-      fetchInventoryLots()
-        .then(setStock)
-        .catch(() => {});
+      reloadStock();
     } catch (err: unknown) {
       setStatus("error");
       setMessage(err instanceof Error ? err.message : String(err));
@@ -271,7 +279,29 @@ export function MovementsPage(): React.ReactElement {
             Log inbound (new defective stock) or outbound (sold, allocated, destroyed)
           </div>
         </div>
+        <div className="right">
+          <button
+            type="button"
+            className="secondaryBtn"
+            onClick={() => setBulkImportOpen(true)}
+            aria-label="Bulk import defective stock"
+          >
+            Bulk import
+          </button>
+        </div>
       </header>
+
+      {bulkImportOpen ? (
+        <BulkImportDialog
+          loggedBy={form.logged_by}
+          onClose={() => setBulkImportOpen(false)}
+          onImported={() => {
+            reloadStock();
+            setStatus("success");
+            setMessage("Bulk import finished. New lots appear on the dashboard and in History.");
+          }}
+        />
+      ) : null}
 
       {!stockError ? null : (
         <div className="card">
