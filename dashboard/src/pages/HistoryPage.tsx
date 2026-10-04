@@ -1,12 +1,27 @@
 import React from "react";
-import { formatExpiryDisplay } from "../expiry";
-import { formatInt } from "../format";
-import { formatRejectSource } from "../rejectSources";
 import { AttachPhotosDialog } from "../components/AttachPhotosDialog";
 import { EditMovementDialog } from "../components/EditMovementDialog";
+import { HistoryFilterBar } from "../components/HistoryFilterBar";
 import { ProductThumb } from "../components/ProductThumb";
+import { downloadMovementsExcel } from "../exportMovements";
+import { formatExpiryDisplay } from "../expiry";
+import { formatInt } from "../format";
+import {
+  collectDefectTypeOptions,
+  collectDispositionOptions,
+  collectSkuOptions,
+  collectSourceTypeOptions,
+  countActiveHistoryFilters,
+  defectPieceQuantity,
+  EMPTY_HISTORY_FILTERS,
+  filterMovements,
+  movementDetail,
+  sumMovementQuantity,
+  type MovementHistoryFilters,
+} from "../historyFilters";
 import { useSkuLookup } from "../hooks/useSkuLookup";
 import { deleteMovement, listMovements } from "../movements";
+import { formatRejectSource } from "../rejectSources";
 import type { MovementRecord } from "../types";
 
 function formatWhen(iso: string): string {
@@ -20,7 +35,11 @@ export function HistoryPage(): React.ReactElement {
   const [rows, setRows] = React.useState<MovementRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [filter, setFilter] = React.useState("");
+  const [filters, setFilters] = React.useState<MovementHistoryFilters>({
+    ...EMPTY_HISTORY_FILTERS,
+    skus: [],
+  });
+  const [exporting, setExporting] = React.useState(false);
   const [editing, setEditing] = React.useState<MovementRecord | null>(null);
   const [attachingPhotos, setAttachingPhotos] = React.useState<MovementRecord | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -45,21 +64,40 @@ export function HistoryPage(): React.ReactElement {
     void load();
   }, [load]);
 
-  const filtered = React.useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      return (
-        r.product_name.toLowerCase().includes(q) ||
-        (r.sku ?? "").toLowerCase().includes(q) ||
-        (r.batch_code ?? "").toLowerCase().includes(q) ||
-        (r.logged_by ?? "").toLowerCase().includes(q) ||
-        (r.reject_source_type ?? "").toLowerCase().includes(q) ||
-        (r.reject_source_vendor ?? "").toLowerCase().includes(q) ||
-        r.direction.includes(q)
-      );
-    });
-  }, [rows, filter]);
+  const filtered = React.useMemo(() => filterMovements(rows, filters), [rows, filters]);
+  const matchPcs = React.useMemo(() => sumMovementQuantity(filtered), [filtered]);
+  const defectPcs = React.useMemo(() => {
+    if (!filters.defectType.trim()) return null;
+    return filtered.reduce(
+      (sum, row) => sum + (defectPieceQuantity(row, filters.defectType) ?? row.quantity_pcs),
+      0,
+    );
+  }, [filtered, filters.defectType]);
+  const activeFilters = countActiveHistoryFilters(filters);
+  const skuOptions = React.useMemo(
+    () => collectSkuOptions(rows, skuLookup.entries),
+    [rows, skuLookup.entries],
+  );
+  const defectTypes = React.useMemo(() => collectDefectTypeOptions(rows), [rows]);
+  const dispositions = React.useMemo(() => collectDispositionOptions(rows), [rows]);
+  const sourceTypes = React.useMemo(() => collectSourceTypeOptions(rows), [rows]);
+
+  function clearFilters(): void {
+    setFilters({ ...EMPTY_HISTORY_FILTERS, skus: [] });
+  }
+
+  async function onExport(): Promise<void> {
+    if (!filtered.length || exporting) return;
+    setExporting(true);
+    setMessage(null);
+    try {
+      await downloadMovementsExcel(filtered, undefined, filters.defectType);
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function onDelete(record: MovementRecord): Promise<void> {
     const ok = window.confirm(
@@ -84,9 +122,25 @@ export function HistoryPage(): React.ReactElement {
       <header className="header">
         <div>
           <div className="title">Movement history</div>
-          <div className="subtitle">Edit or delete past stock entries (updates inventory automatically)</div>
+          <div className="subtitle">
+            Filter by date, type, SKU, defect, batch, and more, then export the matching entries
+          </div>
         </div>
         <div className="right">
+          <button
+            type="button"
+            className="secondaryBtn"
+            onClick={() => void onExport()}
+            disabled={loading || busy || exporting || filtered.length === 0}
+            aria-label="Export filtered movement history to Excel"
+            title={
+              filtered.length
+                ? `Export ${formatInt(filtered.length)} matching entries`
+                : "Nothing to export"
+            }
+          >
+            {exporting ? "Exporting…" : "Export Excel"}
+          </button>
           <button type="button" className="secondaryBtn" onClick={() => void load()} disabled={loading || busy}>
             Refresh
           </button>
@@ -111,16 +165,26 @@ export function HistoryPage(): React.ReactElement {
         </div>
       ) : null}
 
+      <HistoryFilterBar
+        filters={filters}
+        onChange={setFilters}
+        skuOptions={skuOptions}
+        defectTypes={defectTypes}
+        dispositions={dispositions}
+        sourceTypes={sourceTypes}
+      />
+
       <section className="card">
         <div className="tableSectionHead">
-          <div className="cardTitle">All entries</div>
-          <input
-            className="thFilter tableToolbarSearch"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter…"
-            aria-label="Filter history"
-          />
+          <div className="cardTitle">{activeFilters ? "Matching entries" : "All entries"}</div>
+          <button
+            type="button"
+            className="linkButton"
+            onClick={clearFilters}
+            disabled={activeFilters === 0}
+          >
+            Clear filters
+          </button>
         </div>
 
         {loading ? (
@@ -137,6 +201,7 @@ export function HistoryPage(): React.ReactElement {
                     aria-label="Product image"
                   />
                   <th>Product</th>
+                  <th>SKU</th>
                   <th>Batch</th>
                   <th>Expiry</th>
                   <th className="num">Qty</th>
@@ -147,6 +212,17 @@ export function HistoryPage(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={12}>
+                      <div className="hint">
+                        {rows.length === 0
+                          ? "No stock entries yet."
+                          : "No entries match these filters."}
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
                 {filtered.map((r) => (
                   <tr key={r.movement_id}>
                     <td className="mono">{formatWhen(r.timestamp_utc)}</td>
@@ -158,14 +234,11 @@ export function HistoryPage(): React.ReactElement {
                       />
                     </td>
                     <td>{r.product_name}</td>
+                    <td className="mono">{r.sku || "—"}</td>
                     <td className="mono">{r.batch_code}</td>
                     <td className="mono">{formatExpiryDisplay(r.expiry_date)}</td>
                     <td className="num">{formatInt(r.quantity_pcs)}</td>
-                    <td>
-                      {r.direction === "inbound"
-                        ? r.defect_reason || (r.defect_lines?.length ? "Defect breakdown" : "—")
-                        : r.disposition || "—"}
-                    </td>
+                    <td>{movementDetail(r) || "—"}</td>
                     <td>
                       {r.direction === "inbound"
                         ? formatRejectSource(r.reject_source_type, r.reject_source_vendor) || "—"
@@ -209,7 +282,20 @@ export function HistoryPage(): React.ReactElement {
 
         {!loading ? (
           <div className="tableMeta">
-            Showing <span className="mono">{formatInt(filtered.length)}</span> entries
+            Showing <span className="mono">{formatInt(filtered.length)}</span>
+            {activeFilters ? (
+              <>
+                {" "}
+                of <span className="mono">{formatInt(rows.length)}</span>
+              </>
+            ) : null}{" "}
+            entries · <span className="mono">{formatInt(matchPcs)}</span> pcs
+            {defectPcs != null ? (
+              <>
+                {" "}
+                · <span className="mono">{formatInt(defectPcs)}</span> pcs {filters.defectType}
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>
