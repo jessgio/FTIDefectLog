@@ -1272,6 +1272,127 @@ section.card + section.card {
   color: var(--error);
 }
 
+.historyFilters {
+  margin-bottom: 0;
+}
+
+.historyPresetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 4px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.historyPresetRow .dirBtn {
+  padding: 6px 12px;
+}
+
+.historyFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin-top: 14px;
+}
+
+.historyFilterGrid--more {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.historyFilterSpan2 {
+  grid-column: span 2;
+}
+
+.directionToggle--field {
+  margin-bottom: 0;
+  min-height: 42px;
+  align-items: stretch;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.directionToggle--field .dirBtn {
+  flex: 1;
+  padding: 8px 10px;
+}
+
+.historyFilterBar {
+  margin-top: 12px;
+}
+
+.skuChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.skuChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.skuChip button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 999px;
+}
+
+.skuChip button:hover {
+  background: var(--surface);
+}
+
+.historySkuEmpty {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 980px) {
+  .historyFilterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .historyFilterGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .historyFilterSpan2 {
+    grid-column: auto;
+  }
+
+  .historyPresetRow {
+    width: 100%;
+  }
+
+  .historyPresetRow .dirBtn {
+    flex: 1;
+  }
+}
+
 /* ============================================================
    Modals & lightbox
    ============================================================ */
